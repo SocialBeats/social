@@ -33,8 +33,8 @@ A basic Node.js microservice template designed to help you quickly bootstrap mic
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/SocialBeats/microservice-template.git
-   cd microservice-template
+   git clone https://github.com/SocialBeats/social.git
+   cd social
    ```
 
 2. Install dependencies:
@@ -60,8 +60,8 @@ A basic Node.js microservice template designed to help you quickly bootstrap mic
    - MongoDB installed and running locally on port 27017
    - The `.env` file will be configured with:
      ```
-     MONGOURL=mongodb://localhost:27017/microservice-template
-     MONGOTESTURL=mongodb://localhost:27017/microservice-template_test
+     MONGOURL=mongodb://localhost:27017/microservice-social
+     MONGOTESTURL=mongodb://localhost:27017/microservice-social_test
      ```
    - Edit other variables in `.env` as needed (JWT_SECRET, LOG_LEVEL, etc.)
 
@@ -82,8 +82,8 @@ A basic Node.js microservice template designed to help you quickly bootstrap mic
    - **MongoDB MUST be configured to accept connections from Docker containers**
    - The `.env` file will be configured with:
      ```
-     MONGOURL=mongodb://host.docker.internal:27017/microservice-template
-     MONGOTESTURL=mongodb://host.docker.internal:27017/microservice-template_test
+     MONGOURL=mongodb://host.docker.internal:27017/microservice-social
+     MONGOTESTURL=mongodb://host.docker.internal:27017/microservice-social_test
      ```
 
    **⚠️ IMPORTANT: MongoDB Configuration for Docker Access**
@@ -155,8 +155,8 @@ A basic Node.js microservice template designed to help you quickly bootstrap mic
    - No local MongoDB installation required
    - The `.env` file will be configured with:
      ```
-     MONGOURL=mongodb://mongodb:27017/microservice-template
-     MONGOTESTURL=mongodb://mongodb:27017/microservice-template_test
+     MONGOURL=mongodb://mongodb:27017/microservice-social
+     MONGOTESTURL=mongodb://mongodb:27017/microservice-social_test
      ```
    - The `mongodb` hostname refers to the MongoDB container defined in `docker-compose.yml`
 
