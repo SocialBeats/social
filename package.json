@@ -1,0 +1,52 @@
+{
+  "scripts": {
+    "start": "nodemon main.js",
+    "env:local": "node scripts/copyEnv.cjs local",
+    "env:docker": "node scripts/copyEnv.cjs docker",
+    "env:compose": "node scripts/copyEnv.cjs compose",
+    "dev:local": "npm run env:local && npm run start",
+    "dev:compose": "npm run env:compose && docker-compose -f docker-compose-dev.yml up --build",
+    "dev:docker": "npm run env:docker && npm run docker:build && npm run docker:run",
+    "docker:build": "docker build -t microservice-template .",
+    "docker:run": "docker run -it --rm --name microservice-app -p 3000:3000 --add-host=host.docker.internal:host-gateway --env-file .env microservice-template",
+    "test": "cross-env NODE_ENV=test vitest --run",
+    "test:watch": "cross-env NODE_ENV=test vitest --watch",
+    "test:coverage": "cross-env NODE_ENV=test vitest --coverage --run",
+    "lint": "prettier --check '**/*.{cjs,js,ts,css,md}'",
+    "lint:fix": "prettier --write '**/*.{cjs,js,ts,css,md}'",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,ts,json,css,md}": [
+      "prettier --write"
+    ]
+  },
+  "type": "module",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "js-yaml": "^4.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "marked": "^17.0.0",
+    "mongoose": "^8.19.3",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.18.3"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "@vitest/coverage-istanbul": "^2.1.9",
+    "cross-env": "^10.1.0",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.6",
+    "nodemon": "^3.1.10",
+    "prettier": "^3.6.2",
+    "supertest": "^7.1.4",
+    "vitest": "^2.1.9"
+  }
+}

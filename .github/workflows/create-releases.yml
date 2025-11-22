@@ -1,0 +1,160 @@
+name: Release and publish Docker image
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  release-and-docker:
+    runs-on: ubuntu-latest
+    env:
+      DOCKER_HUB_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Check tag is on main branch
+        run: |
+          if [[ "${GITHUB_REF}" != refs/tags/* ]]; then
+            echo "Not a tag, skipping workflow."
+            exit 0
+          fi
+
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          TAG_SHA=$(git rev-list -n 1 "$TAG_NAME")
+
+          if ! git branch -r --contains "$TAG_SHA" | grep -q "origin/main"; then
+            echo "Tag $TAG_NAME does not point to main branch. Skipping workflow."
+            exit 0
+          fi
+
+          echo "Tag $TAG_NAME is on main branch. Continuing."
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh jq
+
+      - name: Set tag and repo variables
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          REPO_NAME=$(basename $GITHUB_REPOSITORY)
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          echo "MICROSERVICE_NAME=$REPO_NAME" >> $GITHUB_ENV
+          echo "DOCKER_IMAGE=${{ env.DOCKER_HUB_NAMESPACE }}/$REPO_NAME" >> $GITHUB_ENV
+
+      - name: Generate release notes from commits between tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 "$TAG_NAME^" 2>/dev/null || echo "")
+
+          echo "Generating release notes for tag: $TAG_NAME"
+          echo "Previous tag: $PREV_TAG"
+
+          if [ -z "$PREV_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"%H")
+          else
+            COMMITS=$(git log --pretty=format:"%H" "$PREV_TAG..$TAG_NAME")
+          fi
+
+          FEATURES=""
+          TESTS=""
+          CI=""
+          DOCS=""
+          FIXES=""
+          OTHER=""
+
+          for sha in $COMMITS; do
+            MSG=$(git log -1 --pretty=format:"%s" $sha)
+            if [[ "$MSG" =~ ^(feat|ci|test|tests|perf|build|fix|refactor|chore|style|docs|doc): ]]; then
+              TYPE="${BASH_REMATCH[1]}"
+              DESC="${MSG#*: }"
+              case "$TYPE" in
+                feat) FEATURES+="- feat: $DESC\n" ;;
+                test|tests) TESTS+="- test: $DESC\n" ;;
+                docs|doc) DOCS+="- docs: $DESC\n" ;;
+                ci) CI+="- ci: $DESC\n" ;;
+                fix) FIXES+="- fix: $DESC\n" ;;
+                *) OTHER+="- $TYPE: $DESC\n" ;;
+              esac
+            else
+              OTHER+="- $MSG\n"
+            fi
+          done
+
+          RELEASE_NOTES="# Release $TAG_NAME\n\n"
+          RELEASE_NOTES+="## Features\n${FEATURES:-No new features.}\n"
+          RELEASE_NOTES+="## Tests\n${TESTS:-No test changes.}\n"
+          RELEASE_NOTES+="## Documentation\n${DOCS:-No documentation changes.}\n"
+          RELEASE_NOTES+="## Fixes\n${FIXES:-No fixes added.}\n"
+          RELEASE_NOTES+="## Continuous integration (CI)\n${CI:-No CI changes.}\n"
+          RELEASE_NOTES+="## Other changes\n${OTHER:-No other changes.}\n"
+          RELEASE_NOTES+="## Full commit history\n\nFor full commit history, see [here](https://github.com/${{ github.repository }}/compare/$PREV_TAG...$TAG_NAME)."
+
+          echo -e "$RELEASE_NOTES" > release_notes.md
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$RELEASE_NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Update CHANGELOG.md and .version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          (cat release_notes.md; echo; cat CHANGELOG.md) > temp && mv temp CHANGELOG.md
+          echo "$TAG_NAME" > .version
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout main
+          git add CHANGELOG.md .version
+          git commit -m "chore: update CHANGELOG and .version for $TAG_NAME" || echo "No changes to commit"
+          git push origin main
+
+          # Recreate tag pointing to the latest commit
+          git tag -d "$TAG_NAME" || true
+          git tag "$TAG_NAME"
+          git push --force origin "$TAG_NAME"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_SHA=$(git rev-list -n 1 "$TAG_NAME")
+          gh release create "$TAG_NAME" \
+            --title "$TAG_NAME" \
+            --notes-file release_notes.md \
+            --target "$TAG_SHA"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_IMAGE }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE }}:${{ env.TAG_NAME }}
+            ${{ env.DOCKER_IMAGE }}:latest
+          labels: ${{ steps.meta.outputs.labels }}

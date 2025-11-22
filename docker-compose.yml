@@ -1,0 +1,46 @@
+version: "3.8"
+
+services:
+  mongodb:
+    restart: unless-stopped
+    image: mongo:latest
+    container_name: mongodb
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGOADMIN}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGOPASS}
+    networks:
+      - socialbeats-network
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  template:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: template
+    environment:
+      - MONGOURL=${MONGOURL}
+      - MONGOADMIN=${MONGOADMIN}
+      - MONGOPASS=${MONGOPASS}
+      - NODE_ENV=production
+      - PORT=${PORT}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - JWT_SECRET=${JWT_SECRET}
+      - API_TITLE=${API_TITLE}
+      - API_DESCRIPTION=${API_DESCRIPTION}
+    depends_on:
+      - mongodb
+    networks:
+      - socialbeats-network
+    ports:
+      - "${PORT}:${PORT}"
+
+volumes:
+  mongo-data:
+
+networks:
+  socialbeats-network:
+    driver: bridge

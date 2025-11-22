@@ -1,0 +1,157 @@
+openapi: 3.0.0
+info:
+  title: Microservice API
+  version: unknown
+  description: This is an OAS description of this Microservice REST API
+servers:
+  - url: http://localhost:3000
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+paths:
+  /api/v1/about:
+    get:
+      tags:
+        - Documentation
+      summary: Retrieve the entire README file as HTML.
+      description: Reads the entire README file and returns its content as HTML.
+      responses:
+        '200':
+          description: Successfully retrieved the README file content as HTML.
+          content:
+            text/html:
+              schema:
+                type: string
+                description: The HTML content of the README file.
+        '500':
+          description: Error reading the README file.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Error message when the file cannot be read.
+                example: 'Error reading the file: [error details]'
+  /api/v1/version:
+    get:
+      tags:
+        - Documentation
+      summary: Retrieve the API version from the .version file.
+      description: >-
+        Reads the .version file and returns its content as part of a JSON
+        message.
+      responses:
+        '200':
+          description: Successfully retrieved the API version.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: The current API version.
+                    example: v1.0.0
+        '500':
+          description: Error reading the .version file.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error message summary.
+                    example: There was an error retrieving API version
+                  error:
+                    type: string
+                    description: Detailed error message.
+                    example: 'ENOENT: no such file or directory, open ''.version'''
+  /api/v1/changelog:
+    get:
+      tags:
+        - Documentation
+      summary: Retrieve the API changelog.
+      description: >
+        Reads the `CHANGELOG.md` file, parses its content, and returns it as
+        HTML. Supports filtering by specific versions, multiple versions, or a
+        version range.
+      parameters:
+        - in: query
+          name: versions
+          schema:
+            type: string
+          description: >
+            Comma-separated list of release versions to retrieve (e.g.
+            `v2.1.4,v2.1.2`).
+        - in: query
+          name: from
+          schema:
+            type: string
+          description: >
+            Starting release version for the changelog range (inclusive, e.g.
+            `v2.1.2`).
+        - in: query
+          name: to
+          schema:
+            type: string
+          description: >
+            Ending release version for the changelog range (inclusive, e.g.
+            `v2.1.4`).
+      responses:
+        '200':
+          description: Successfully retrieved the changelog.
+          content:
+            text/html:
+              schema:
+                type: string
+                description: The HTML representation of the changelog or filtered releases.
+        '500':
+          description: Error reading the CHANGELOG.md file.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Error message when the changelog cannot be read.
+                example: >-
+                  There was an error retrieving API release notes: ENOENT: no
+                  such file or directory, open 'CHANGELOG.md'
+  /api/v1/health:
+    get:
+      tags:
+        - Health
+      summary: Health check endpoint
+      description: Returns basic information to verify that the API is running properly.
+      responses:
+        '200':
+          description: API is healthy and responding.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  message:
+                    type: string
+                    example: Health check successful
+                  version:
+                    type: string
+                    example: 1.0.0
+                  uptime:
+                    type: number
+                    example: 123.45
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: '2025-11-08T13:41:47.074Z'
+                  environment:
+                    type: string
+                    example: development
+                  db:
+                    type: string
+                    example: connected
+tags: []

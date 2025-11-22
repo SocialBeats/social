@@ -1,0 +1,9 @@
+.github
+.husky
+.env
+.vscode
+coverage
+node_modules
+template-features.pdf
+.gitignore
+.markdownlint.json
