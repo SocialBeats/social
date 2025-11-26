@@ -1,5 +1,5 @@
-import Playlist from './Feed.js';
-import Comment from './Friendship.js';
-import Rating from './Message.js';
+import Feed from './Feed.js';
+import Friendship from './Friendship.js';
+import Message from './Message.js';
 
 export { Feed, Friendship, Message };
