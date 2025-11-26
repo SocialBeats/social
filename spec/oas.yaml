@@ -1,8 +1,8 @@
 openapi: 3.0.0
 info:
-  title: Microservice API
+  title: Social microservice API
   version: unknown
-  description: This is an OAS description of this Microservice REST API
+  description: This is an OAS description of this social microservice REST API
 servers:
   - url: http://localhost:3000
 components:
