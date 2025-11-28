@@ -4,8 +4,34 @@ import logger from '../../logger.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
+const getUserIdFromReq = (req) => req.user?.sub || req.user?.id;
+
+const userExists = async (id) => {
+  if (!isValidId(id)) return false;
+  try {
+    const obj = await mongoose.connection
+      .collection('users')
+      .findOne({ _id: new mongoose.Types.ObjectId(id) });
+    return !!obj;
+  } catch (err) {
+    logger.error(`userExists error: ${err.message}`);
+    return false;
+  }
+};
+
+export const areFriends = async (userA, userB) => {
+  if (!isValidId(userA) || !isValidId(userB)) return false;
+  const existing = await Friendship.findOne({
+    $or: [
+      { requester: userA, recipient: userB, status: 'accepted' },
+      { requester: userB, recipient: userA, status: 'accepted' },
+    ],
+  });
+  return !!existing;
+};
+
 export const sendRequest = async (req, res) => {
-  const requesterId = req.user?.sub || req.user?.id;
+  const requesterId = getUserIdFromReq(req);
   const { recipientId } = req.body;
 
   if (!isValidId(requesterId) || !isValidId(recipientId)) {
@@ -16,6 +42,14 @@ export const sendRequest = async (req, res) => {
   }
 
   try {
+    const recipientFound = await userExists(recipientId);
+    if (!recipientFound)
+      return res.status(404).json({ message: 'Recipient user not found' });
+
+    const alreadyFriends = await areFriends(requesterId, recipientId);
+    if (alreadyFriends)
+      return res.status(409).json({ message: 'Users are already friends' });
+
     const existing = await Friendship.findOne({
       $or: [
         { requester: requesterId, recipient: recipientId },
@@ -25,15 +59,34 @@ export const sendRequest = async (req, res) => {
 
     if (existing) {
       if (existing.status === 'pending') {
+        // If the pending request is in the reverse direction (recipient -> requester),
+        // accept it and return the updated document.
+        if (
+          existing.requester &&
+          existing.recipient &&
+          existing.requester.toString() === recipientId &&
+          existing.recipient.toString() === requesterId
+        ) {
+          existing.status = 'accepted';
+          await existing.save();
+          return res.status(200).json(existing);
+        }
         return res.status(409).json({ message: 'Request already pending' });
       }
       if (existing.status === 'accepted') {
         return res.status(409).json({ message: 'You are already friends' });
       }
+      // if previously rejected, allow new request only if the previous requester is the same as current requester
       if (
         existing.status === 'rejected' &&
-        existing.requester.toString() !== requesterId
+        existing.requester.toString() === requesterId
       ) {
+        // recreate by updating existing doc to pending (avoid duplicates)
+        existing.status = 'pending';
+        existing.requester = requesterId;
+        existing.recipient = recipientId;
+        await existing.save();
+        return res.status(200).json(existing);
       }
     }
 
@@ -50,7 +103,7 @@ export const sendRequest = async (req, res) => {
 };
 
 export const listReceived = async (req, res) => {
-  const userId = req.user?.sub || req.user?.id;
+  const userId = getUserIdFromReq(req);
   if (!isValidId(userId))
     return res.status(400).json({ message: 'Invalid user id' });
 
@@ -67,7 +120,7 @@ export const listReceived = async (req, res) => {
 };
 
 export const respondRequest = async (req, res) => {
-  const userId = req.user?.sub || req.user?.id;
+  const userId = getUserIdFromReq(req);
   const { id } = req.params;
   const { action } = req.body;
 
@@ -95,7 +148,7 @@ export const respondRequest = async (req, res) => {
 };
 
 export const listFriends = async (req, res) => {
-  const userId = req.user?.sub || req.user?.id;
+  const userId = getUserIdFromReq(req);
   if (!isValidId(userId))
     return res.status(400).json({ message: 'Invalid user id' });
 
@@ -116,7 +169,7 @@ export const listFriends = async (req, res) => {
 };
 
 export const removeFriend = async (req, res) => {
-  const userId = req.user?.sub || req.user?.id;
+  const userId = getUserIdFromReq(req);
   const { id: otherId } = req.params;
   if (!isValidId(userId) || !isValidId(otherId))
     return res.status(400).json({ message: 'Invalid id' });
