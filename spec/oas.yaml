@@ -11,6 +11,48 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  schemas:
+    ConversationResponse:
+      type: object
+      properties:
+        _id:
+          type: string
+          description: ID único de la conversación.
+          example: 6655c69992f44200159422a5
+        participants:
+          type: array
+          items:
+            type: string
+          description: Array de IDs de los 2 participantes.
+        lastMessage:
+          type: object
+          description: Metadatos del último mensaje (texto, hora, remitente).
+          properties:
+            text:
+              type: string
+            timestamp:
+              type: string
+              format: date-time
+            senderId:
+              type: string
+              description: ID del remitente.
+        unreadCount:
+          type: object
+          description: >-
+            Contador de mensajes no leídos por participante (clave=userId,
+            valor=count).
+          example:
+            6655c69992f44200159422a5: 5
+            otro_id: 0
+        isDeletedBy:
+          type: object
+          description: >-
+            Estado de eliminación lógica por participante (clave=userId,
+            valor=boolean).
+        updatedAt:
+          type: string
+          format: date-time
+          description: Fecha de la última actividad (usado para ordenar).
 paths:
   /api/v1/about:
     get:
@@ -118,228 +160,125 @@ paths:
                 example: >-
                   There was an error retrieving API release notes: ENOENT: no
                   such file or directory, open 'CHANGELOG.md'
-
-  /api/v1/messages/{recipientId}:
-    post:
-      tags:
-        - Messages
-      summary: Send a message
-      description: Sends a message from the authenticated user to the specified recipient.
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: recipientId
-          required: true
-          schema:
-            type: string
-          description: ID of the recipient user.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - body
-              properties:
-                body:
-                  type: string
-                  description: Content of the message.
-                  example: "Hey, let's collaborate on this track!"
-      responses:
-        '201':
-          description: Message successfully sent.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  conversationId:
-                    type: string
-                  senderId:
-                    type: string
-                  recipientId:
-                    type: string
-                  body:
-                    type: string
-                  createdAt:
-                    type: string
-                    format: date-time
-        '401':
-          description: Unauthorized. Token missing or invalid.
-        '403':
-          description: Users are not friends.
-        '500':
-          description: Internal server error.
-
   /api/v1/conversations:
     get:
       tags:
         - Conversations
-      summary: List all conversations of a user
-      description: Retrieves all conversations for the authenticated user, sorted by the last message.
+      summary: Listar todas las conversaciones del usuario
+      description: >-
+        Obtiene la bandeja de entrada del usuario autenticado, ordenada por la
+        actividad más reciente.
       security:
         - bearerAuth: []
-      parameters:
-        - in: query
-          name: page
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          description: Page number for pagination.
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            minimum: 1
-            default: 20
-          description: Number of conversations per page.
       responses:
         '200':
-          description: List of conversations for the user.
+          description: Lista de conversaciones del usuario
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        participantIds:
-                          type: array
-                          items:
-                            type: string
-                        lastMessageAt:
-                          type: string
-                          format: date-time
-                        lastMessageText:
-                          type: string
-                  page:
-                    type: integer
-                  limit:
-                    type: integer
-                  total:
-                    type: integer
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConversationResponse'
         '401':
-          description: Unauthorized. Token missing or invalid.
-        '500':
-          description: Internal server error.
-
-  /api/v1/conversations/{conversationId}:
+          description: No autorizado (Token JWT faltante o inválido)
+  /api/v1/conversations/{convId}:
     get:
       tags:
         - Conversations
-      summary: Get a specific conversation
-      description: Retrieves the details of a specific conversation.
+      summary: Obtener metadatos de una conversación
+      description: Obtiene la información de una conversación por su ID.
       security:
         - bearerAuth: []
       parameters:
         - in: path
-          name: conversationId
+          name: convId
           required: true
           schema:
             type: string
-          description: ID of the conversation to retrieve.
+            format: uuid
+          description: ID de la conversación.
       responses:
         '200':
-          description: Conversation details successfully retrieved.
+          description: Metadatos de la conversación.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                  participantIds:
-                    type: array
-                    items:
-                      type: string
-                  lastMessageAt:
-                    type: string
-                    format: date-time
-                  lastMessageText:
-                    type: string
+                $ref: '#/components/schemas/ConversationResponse'
         '401':
-          description: Unauthorized. Token missing or invalid.
+          description: No autorizado
+        '403':
+          description: Prohibido (El usuario no es participante)
         '404':
-          description: Conversation not found.
-        '500':
-          description: Internal server error.
-
-  /api/v1/conversations/{conversationId}/messages:
-    get:
+          description: Conversación no encontrada
+    delete:
       tags:
-        - Messages
-      summary: List all messages in a conversation
-      description: Retrieves all messages in a specific conversation.
+        - Conversations
+      summary: Eliminar lógicamente una conversación
+      description: >-
+        Marca la conversación como eliminada para el usuario solicitante
+        (eliminación lógica).
       security:
         - bearerAuth: []
       parameters:
         - in: path
-          name: conversationId
+          name: convId
           required: true
           schema:
             type: string
-          description: ID of the conversation.
-        - in: query
-          name: page
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          description: Page number for pagination.
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            minimum: 1
-            default: 20
-          description: Number of messages per page.
+          description: ID de la conversación.
       responses:
         '200':
-          description: List of messages in the conversation.
+          description: Conversación marcada como eliminada exitosamente.
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        senderId:
-                          type: string
-                        recipientId:
-                          type: string
-                        body:
-                          type: string
-                        createdAt:
-                          type: string
-                          format: date-time
-                  page:
-                    type: integer
-                  limit:
-                    type: integer
-                  total:
-                    type: integer
+                  message:
+                    type: string
+                    example: Conversación eliminada lógicamente.
         '401':
-          description: Unauthorized. Token missing or invalid.
+          description: No autorizado
+        '403':
+          description: Prohibido
         '404':
-          description: Conversation not found.
-        '500':
-          description: Internal server error.
-
+          description: Conversación no encontrada
+  /api/v1/conversations/{convId}/read:
+    put:
+      tags:
+        - Conversations
+      summary: Marcar conversación como leída
+      description: >-
+        Resetea el contador 'unreadCount' del usuario autenticado a 0 para esta
+        conversación.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: convId
+          required: true
+          schema:
+            type: string
+          description: ID de la conversación.
+      responses:
+        '200':
+          description: Contador de mensajes no leídos reseteado.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Conversación marcada como leída.
+                  updatedConversation:
+                    $ref: '#/components/schemas/ConversationResponse'
+        '401':
+          description: No autorizado
+        '403':
+          description: Prohibido
+        '404':
+          description: Conversación no encontrada
   /api/v1/health:
     get:
       tags:
@@ -376,4 +315,6 @@ paths:
                   db:
                     type: string
                     example: connected
-tags: []
+tags:
+  - name: Conversations
+    description: Gestión de conversaciones (metadata, listado y estado de lectura)

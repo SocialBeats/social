@@ -1,5 +1,3 @@
-import Playlist from './Feed.js';
-import Comment from './Friendship.js';
-import Rating from './Message.js';
+export { default as Conversation } from './Conversation.js';
 
-export { Feed, Friendship, Message };
+// export { default as Message } from './Message.js';

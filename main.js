@@ -10,9 +10,7 @@ import verifyToken from './src/middlewares/authMiddlewares.js';
 // import your routes here
 import aboutRoutes from './src/routes/aboutRoutes.js';
 import healthRoutes from './src/routes/healthRoutes.js';
-import friendshipRoutes from './src/routes/friendshipRoutes.js';
-import messageRoutes from './src/routes/messageRoutes.js';
-import feedRoutes from './src/routes/feedRoutes.js';
+import conversationRoutes from './src/routes/conversationRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,14 +24,12 @@ app.use(express.json());
 app.use(cors());
 
 // add your middlewares here like this:
-app.use(verifyToken);
+//app.use(verifyToken);
 
 // add your routes here like this:
 aboutRoutes(app);
 healthRoutes(app);
-friendshipRoutes(app);
-messageRoutes(app);
-feedRoutes(app);
+app.use('/api/v1/conversations', conversationRoutes);
 
 // Export app for tests. Do not remove this line
 export default app;

@@ -6,6 +6,8 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     setupFiles: ['./tests/setup/setup.js'],
+    isolate: true,
+    threads: false,
     coverage: {
       provider: 'istanbul',
       reporter: ['text', 'html'],
