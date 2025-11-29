@@ -10,6 +10,9 @@ import verifyToken from './src/middlewares/authMiddlewares.js';
 // import your routes here
 import aboutRoutes from './src/routes/aboutRoutes.js';
 import healthRoutes from './src/routes/healthRoutes.js';
+import friendshipRoutes from './src/routes/friendshipRoutes.js';
+import messageRoutes from './src/routes/messageRoutes.js';
+import feedRoutes from './src/routes/feedRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,6 +31,9 @@ app.use(verifyToken);
 // add your routes here like this:
 aboutRoutes(app);
 healthRoutes(app);
+friendshipRoutes(app);
+messageRoutes(app);
+feedRoutes(app);
 
 // Export app for tests. Do not remove this line
 export default app;
