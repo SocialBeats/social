@@ -5,4 +5,6 @@ const router = Router();
 
 router.get('/api/v1/feed', getFeed);
 
-export default router;
+export default function feedRoutes(app) {
+  app.get('/api/v1/feed', getFeed);
+}
