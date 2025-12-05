@@ -11,6 +11,7 @@ import verifyToken from './src/middlewares/authMiddlewares.js';
 import aboutRoutes from './src/routes/aboutRoutes.js';
 import healthRoutes from './src/routes/healthRoutes.js';
 import conversationRoutes from './src/routes/conversationRoutes.js';
+import messageRoutes from './src/routes/messageRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,6 +31,7 @@ app.use(cors());
 aboutRoutes(app);
 healthRoutes(app);
 app.use('/api/v1/conversations', conversationRoutes);
+app.use('/api/v1', messageRoutes);
 
 // Export app for tests. Do not remove this line
 export default app;

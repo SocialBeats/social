@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Middleware de Bypass
 const fakeAuthBypass = (req, res, next) => {
-  req.user = { id: '669d0d9f045c747656d0d8a5' };
+  req.user = { id: '8ff62d2542f763ee4f236eef' };
   next();
 };
 
