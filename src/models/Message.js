@@ -17,7 +17,7 @@ const MessageSchema = new Schema(
 
     text: {
       type: String,
-      required: true,
+      required: [true, 'El mensaje no puede estar vacío.'],
       trim: true,
     },
   },
@@ -27,10 +27,5 @@ const MessageSchema = new Schema(
 );
 
 MessageSchema.index({ conversationId: 1, createdAt: 1 });
-
-MessageSchema.path('text').validate(function (value) {
-  if (typeof value !== 'string') return false;
-  return value.trim().length > 0;
-}, 'El mensaje no puede estar vacío.');
 
 export default mongoose.model('Message', MessageSchema);
