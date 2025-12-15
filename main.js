@@ -3,15 +3,20 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import http from 'http';
+
 import logger from './logger.js';
 import { connectDB } from './src/db.js';
+
 // import your middlewares here
-import verifyToken from './src/middlewares/authMiddlewares.js';
+// import verifyToken from './src/middlewares/authMiddlewares.js';
+
 // import your routes here
 import aboutRoutes from './src/routes/aboutRoutes.js';
 import healthRoutes from './src/routes/healthRoutes.js';
-import conversationRoutes from './src/routes/conversationRoutes.js';
-import messageRoutes from './src/routes/messageRoutes.js';
+import messagingRoutes from './src/routes/messagingRoutes.js';
+
+import { initSocket } from './src/services/socketService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,13 +30,11 @@ app.use(express.json());
 app.use(cors());
 
 // add your middlewares here like this:
-//app.use(verifyToken);
+// app.use(verifyToken);
 
 // add your routes here like this:
 aboutRoutes(app);
 healthRoutes(app);
-app.use('/api/v1/conversations', conversationRoutes);
-app.use('/api/v1', messageRoutes);
 
 // Export app for tests. Do not remove this line
 export default app;
@@ -39,7 +42,15 @@ export default app;
 if (process.env.NODE_ENV !== 'test') {
   await connectDB();
 
-  app.listen(PORT, () => {
+  // Crear servidor HTTP y enganchar Socket.IO
+  const httpServer = http.createServer(app);
+  const io = initSocket(httpServer);
+
+  // Rutas de mensajería (estilo A)
+  messagingRoutes(app, io);
+
+  // IMPORTANTE: escuchar con httpServer, no con app
+  httpServer.listen(PORT, () => {
     logger.warn(`Using log level: ${process.env.LOG_LEVEL}`);
     logger.info(`API running at http://localhost:${PORT}`);
     logger.info(`Health at http://localhost:${PORT}/api/v1/health`);
