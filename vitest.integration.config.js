@@ -5,15 +5,15 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    setupFiles: ['./tests/setup/setup.js'],
-    include: ['tests/unit/**/*.test.js'],
+    setupFiles: ['./tests/setup/integration.setup.js'],
+    include: ['tests/integration/**/*.test.js'],
     isolate: true,
     threads: false,
     coverage: {
       provider: 'istanbul',
       reporter: ['text', 'html'],
       all: true,
-      reportsDirectory: path.resolve('./coverage/unit'),
+      reportsDirectory: path.resolve('./coverage/integration'),
     },
   },
 });

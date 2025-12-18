@@ -9,9 +9,10 @@
     "dev:docker": "npm run env:docker && npm run docker:build && npm run docker:run",
     "docker:build": "docker build -t microservice-social .",
     "docker:run": "docker run -it --rm --name microservice-app -p 3000:3000 --add-host=host.docker.internal:host-gateway --env-file .env microservice-social",
-    "test": "cross-env NODE_ENV=test vitest --run",
-    "test:watch": "cross-env NODE_ENV=test vitest --watch",
-    "test:coverage": "cross-env NODE_ENV=test vitest --coverage --run",
+    "test": "cross-env NODE_ENV=test vitest --run ./tests/unit",
+    "test:watch": "cross-env NODE_ENV=test vitest --watch ./tests/unit",
+    "test:coverage": "cross-env NODE_ENV=test vitest --coverage --run ./tests/unit",
+    "test:integration": "cross-env vitest --config vitest.integration.config.js --run ./tests/integration",
     "lint": "prettier --check '**/*.{cjs,js,ts,css,md}'",
     "lint:fix": "prettier --write '**/*.{cjs,js,ts,css,md}'",
     "prepare": "husky"

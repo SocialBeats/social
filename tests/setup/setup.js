@@ -1,14 +1,7 @@
-import request from 'supertest';
-import app from '../../main.js';
-import { connectDB, disconnectDB } from '../../src/db.js';
+import { beforeEach, vi } from 'vitest';
 
-beforeAll(async () => {
-  await connectDB();
+process.env.NODE_ENV = 'test';
+
+beforeEach(() => {
+  vi.clearAllMocks();
 });
-
-afterAll(async () => {
-  await disconnectDB();
-});
-
-// Export a ready-to-use Supertest instance
-export const api = request(app);
