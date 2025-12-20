@@ -40,7 +40,7 @@ services:
     volumes:
       - ./:/app:cached
       - /app/node_modules
-    command: nodemon --watch /app --legacy-watch --polling-interval 1000 main.js
+    command: sh -lc "npm ci && nodemon --watch /app --legacy-watch --polling-interval 1000 main.js"
 
 volumes:
   mongo-data:
