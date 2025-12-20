@@ -7,11 +7,23 @@ import swaggerUi from 'swagger-ui-express';
 import yaml from 'js-yaml';
 import { getVersion } from '../utils/versionUtils.js';
 
+import {
+  ConversationSchema,
+  ConversationListItemSchema,
+  MessageSchema,
+  PaginatedConversationsSchema,
+  PaginatedMessagesSchema,
+  ErrorResponseSchema,
+  UpsertDirectConversationRequestSchema,
+  SendMessageRequestSchema,
+} from '../models/OASSchemas.js';
+
 export default function aboutRoutes(app) {
   const API_TITLE = process.env.API_TITLE || 'Microservice API';
   const API_DESCRIPTION =
     process.env.API_DESCRIPTION ||
     'This is an OAS description of this Microservice REST API';
+  const API_PORT = process.env.PORT || 3000;
   const version = getVersion();
 
   // Swagger options
@@ -25,16 +37,43 @@ export default function aboutRoutes(app) {
       },
       servers: [
         {
-          url: 'http://localhost:3000',
+          url: `http://localhost:${API_PORT}`,
         },
       ],
       components: {
         securitySchemes: {
+          // Standard/future auth across services
           bearerAuth: {
             type: 'http',
             scheme: 'bearer',
             bearerFormat: 'JWT',
           },
+          // Current temporary auth for this microservice
+          xUserIdAuth: {
+            type: 'apiKey',
+            in: 'header',
+            name: 'x-user-id',
+            description:
+              'Temporary dev auth for this microservice. Provide a valid MongoDB ObjectId. Will be replaced by JWT.',
+          },
+        },
+        schemas: {
+          // Errors
+          ErrorResponse: ErrorResponseSchema,
+
+          // Messaging domain
+          Conversation: ConversationSchema,
+          ConversationListItem: ConversationListItemSchema,
+          Message: MessageSchema,
+
+          // Pagination payloads
+          PaginatedConversations: PaginatedConversationsSchema,
+          PaginatedMessages: PaginatedMessagesSchema,
+
+          // Request bodies (optional but useful for $ref)
+          UpsertDirectConversationRequest:
+            UpsertDirectConversationRequestSchema,
+          SendMessageRequest: SendMessageRequestSchema,
         },
       },
     },
