@@ -46,7 +46,7 @@ if (process.env.NODE_ENV !== 'test') {
   const httpServer = http.createServer(app);
   const io = initSocket(httpServer);
 
-  // Rutas de mensajería (estilo A)
+  // Rutas de mensajería
   messagingRoutes(app, io);
 
   // IMPORTANTE: escuchar con httpServer, no con app
@@ -57,4 +57,8 @@ if (process.env.NODE_ENV !== 'test') {
     logger.info(`API docs running at http://localhost:${PORT}/api/v1/docs/`);
     logger.info(`Environment: ${process.env.NODE_ENV}`);
   });
+} else {
+  // En test: no levantamos socket real, pero montamos las rutas con un stub
+  const ioStub = { to: () => ({ emit: () => {} }) };
+  messagingRoutes(app, ioStub);
 }

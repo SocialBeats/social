@@ -12,7 +12,7 @@
     "test": "cross-env NODE_ENV=test vitest --run ./tests/unit",
     "test:watch": "cross-env NODE_ENV=test vitest --watch ./tests/unit",
     "test:coverage": "cross-env NODE_ENV=test vitest --coverage --run ./tests/unit",
-    "test:integration": "cross-env vitest --config vitest.integration.config.js --run ./tests/integration",
+    "test:integration": "cross-env NODE_ENV=test vitest --config vitest.integration.config.js --run ./tests/integration",
     "lint": "prettier --check '**/*.{cjs,js,ts,css,md}'",
     "lint:fix": "prettier --write '**/*.{cjs,js,ts,css,md}'",
     "prepare": "husky"
