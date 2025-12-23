@@ -29,7 +29,7 @@ services:
       - MONGOADMIN=
       - MONGOPASS=
       - NODE_ENV=test
-      - PORT=3000
+      - PORT=3004
       - LOG_LEVEL=info
       - JWT_SECRET=secret
       - API_TITLE=Social microservice API
@@ -42,7 +42,7 @@ services:
     ports:
       - "0:${PORT}"
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/health || exit 1"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3004/api/v1/health || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 20

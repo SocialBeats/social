@@ -3,8 +3,15 @@ import mongoose from 'mongoose';
 import { api } from '../setup/integration.setup.js';
 import Conversation from '../../src/models/Conversation.js';
 import Message from '../../src/models/Message.js';
+import Friendship from '../../src/models/Friendship.js';
 
 const oid = () => new mongoose.Types.ObjectId().toString();
+
+async function seedFriendshipAccepted(a, b) {
+  // Con areFriends basta con una dirección.
+  // Evita duplicados por el índice unique requester+recipient.
+  await Friendship.create({ requester: a, recipient: b, status: 'accepted' });
+}
 
 describe('Messaging integration', () => {
   let userA;
@@ -15,7 +22,9 @@ describe('Messaging integration', () => {
     userB = oid();
     await Conversation.deleteMany({});
     await Message.deleteMany({});
+    await Friendship.deleteMany({});
   });
+
   it('401 si falta autenticación (x-user-id) en endpoints protegidos', async () => {
     // conversations/direct
     const r1 = await api
@@ -72,19 +81,34 @@ describe('Messaging integration', () => {
     expect(r2.status).toBe(400);
   });
 
+  it('403 si intenta crear conversación directa con alguien que no es amigo', async () => {
+    const res = await api
+      .post('/api/v1/social/conversations/direct')
+      .set('x-user-id', userA)
+      .send({ otherUserId: userB });
+
+    expect(res.status).toBe(403);
+    expect(res.body).toHaveProperty('error', 'You can only message friends');
+  });
+
   it('403 si usuario autenticado intenta acceder a conversación de la que no es miembro', async () => {
+    await seedFriendshipAccepted(userA, userB);
+
     // Creamos conversación y mensajes entre A y B
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
       .set('x-user-id', userA)
       .send({ otherUserId: userB });
 
+    expect(convoRes.status).toBe(200);
     const conversationId = convoRes.body.conversation._id;
 
-    await api
+    const sendOk = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
       .set('x-user-id', userA)
       .send({ text: 'hola' });
+
+    expect(sendOk.status).toBe(201);
 
     // Tercer usuario intenta leer
     const userC = oid();
@@ -105,11 +129,14 @@ describe('Messaging integration', () => {
   });
 
   it('400 si text está vacío o supera 1000 al enviar mensaje', async () => {
+    await seedFriendshipAccepted(userA, userB);
+
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
       .set('x-user-id', userA)
       .send({ otherUserId: userB });
 
+    expect(convoRes.status).toBe(200);
     const conversationId = convoRes.body.conversation._id;
 
     // vacío/espacios
@@ -130,11 +157,14 @@ describe('Messaging integration', () => {
   });
 
   it('lastMessageText se recorta a 200 caracteres en DB', async () => {
+    await seedFriendshipAccepted(userA, userB);
+
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
       .set('x-user-id', userA)
       .send({ otherUserId: userB });
 
+    expect(convoRes.status).toBe(200);
     const conversationId = convoRes.body.conversation._id;
 
     const longText = 'a'.repeat(250);
@@ -151,6 +181,8 @@ describe('Messaging integration', () => {
   });
 
   it('POST /api/v1/social/conversations/direct crea conversación y es única por pareja', async () => {
+    await seedFriendshipAccepted(userA, userB);
+
     const res1 = await api
       .post('/api/v1/social/conversations/direct')
       .set('x-user-id', userA)
@@ -166,6 +198,7 @@ describe('Messaging integration', () => {
       .send({ otherUserId: userA });
 
     expect(res2.status).toBe(200);
+    expect(res2.body).toHaveProperty('conversation');
     expect(res2.body.conversation._id).toBe(convoId1);
 
     expect(await Conversation.countDocuments()).toBe(1);
@@ -182,11 +215,14 @@ describe('Messaging integration', () => {
   });
 
   it('POST /api/v1/social/conversations/:id/messages crea mensaje y actualiza lastMessage*', async () => {
+    await seedFriendshipAccepted(userA, userB);
+
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
       .set('x-user-id', userA)
       .send({ otherUserId: userB });
 
+    expect(convoRes.status).toBe(200);
     const conversationId = convoRes.body.conversation._id;
 
     const sendRes = await api
@@ -203,22 +239,27 @@ describe('Messaging integration', () => {
   });
 
   it('GET /api/v1/social/conversations/:id/messages devuelve en orden cronológico (old -> new)', async () => {
+    await seedFriendshipAccepted(userA, userB);
+
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
       .set('x-user-id', userA)
       .send({ otherUserId: userB });
 
+    expect(convoRes.status).toBe(200);
     const conversationId = convoRes.body.conversation._id;
 
-    await api
+    const r1 = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
       .set('x-user-id', userA)
       .send({ text: 'uno' });
+    expect(r1.status).toBe(201);
 
-    await api
+    const r2 = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
       .set('x-user-id', userA)
       .send({ text: 'dos' });
+    expect(r2.status).toBe(201);
 
     const listRes = await api
       .get(`/api/v1/social/conversations/${conversationId}/messages`)
@@ -229,10 +270,14 @@ describe('Messaging integration', () => {
   });
 
   it('GET /api/v1/social/conversations no lista conversaciones vacías (sin mensajes)', async () => {
-    await api
+    await seedFriendshipAccepted(userA, userB);
+
+    const convoRes = await api
       .post('/api/v1/social/conversations/direct')
       .set('x-user-id', userA)
       .send({ otherUserId: userB });
+
+    expect(convoRes.status).toBe(200);
 
     const res = await api
       .get('/api/v1/social/conversations')
@@ -243,17 +288,22 @@ describe('Messaging integration', () => {
   });
 
   it('GET /api/v1/social/conversations lista conversaciones con mensajes y devuelve otherUserId', async () => {
+    await seedFriendshipAccepted(userA, userB);
+
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
       .set('x-user-id', userA)
       .send({ otherUserId: userB });
 
+    expect(convoRes.status).toBe(200);
     const conversationId = convoRes.body.conversation._id;
 
-    await api
+    const sendRes = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
       .set('x-user-id', userA)
       .send({ text: 'hola' });
+
+    expect(sendRes.status).toBe(201);
 
     const res = await api
       .get('/api/v1/social/conversations')
@@ -264,17 +314,20 @@ describe('Messaging integration', () => {
     expect(res.body.items[0]).toHaveProperty('otherUserId', userB);
     expect(res.body.items[0]).toHaveProperty('lastMessageText', 'hola');
   });
+
   it('GET /conversations/:id/messages pagina con limit y before (hasMore/nextCursor coherentes)', async () => {
+    await seedFriendshipAccepted(userA, userB);
+
     // 1) Creamos conversación
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
       .set('x-user-id', userA)
       .send({ otherUserId: userB });
 
+    expect(convoRes.status).toBe(200);
     const conversationId = convoRes.body.conversation._id;
 
     // 2) Insertamos 4 mensajes directamente en DB con createdAt controlado
-    // (más fiable que enviar por API si quieres timestamps exactos)
     const t1 = new Date('2025-01-01T10:00:00.000Z');
     const t2 = new Date('2025-01-01T10:01:00.000Z');
     const t3 = new Date('2025-01-01T10:02:00.000Z');
@@ -338,27 +391,36 @@ describe('Messaging integration', () => {
     expect(page2.body.items.map((m) => m.text)).toEqual(['m1', 'm2']);
 
     const nextCursor2 = page2.body.nextCursor;
-    // nextCursor ahora debería ser el createdAt del más antiguo de esta página => m1 (t1)
     expect(new Date(nextCursor2).toISOString()).toBe(t1.toISOString());
   });
+
   it('GET /conversations pagina con limit y cursor (hasMore/nextCursor coherentes)', async () => {
     // Creamos 3 conversaciones con mensajes, y forzamos lastMessageAt distintos
     const userC = oid();
     const userD = oid();
     const userE = oid();
 
+    await seedFriendshipAccepted(userA, userC);
+    await seedFriendshipAccepted(userA, userD);
+    await seedFriendshipAccepted(userA, userE);
+
     const c1 = await api
       .post('/api/v1/social/conversations/direct')
       .set('x-user-id', userA)
       .send({ otherUserId: userC });
+    expect(c1.status).toBe(200);
+
     const c2 = await api
       .post('/api/v1/social/conversations/direct')
       .set('x-user-id', userA)
       .send({ otherUserId: userD });
+    expect(c2.status).toBe(200);
+
     const c3 = await api
       .post('/api/v1/social/conversations/direct')
       .set('x-user-id', userA)
       .send({ otherUserId: userE });
+    expect(c3.status).toBe(200);
 
     const id1 = c1.body.conversation._id;
     const id2 = c2.body.conversation._id;
@@ -423,7 +485,6 @@ describe('Messaging integration', () => {
 
     const cursor = page1.body.nextCursor;
     expect(cursor).toBeTruthy();
-    // nextCursor debe ser lastMessageAt del último item de la página => t2
     expect(new Date(cursor).toISOString()).toBe(t2.toISOString());
 
     // Página 2: cursor=t2 => devuelve c1
