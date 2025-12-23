@@ -15,7 +15,7 @@ services:
     volumes:
       - mongo-data:/data/db
 
-  template:
+  social-dev:
     restart: unless-stopped
     build:
       context: .

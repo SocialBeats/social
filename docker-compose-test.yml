@@ -19,7 +19,7 @@ services:
     volumes:
       - mongo-data-test:/data/db
 
-  social:
+  social-test:
     restart: "unless-stopped"
     build:
       context: .
