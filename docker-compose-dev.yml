@@ -15,12 +15,12 @@ services:
     volumes:
       - mongo-data:/data/db
 
-  social-dev:
+  social:
     restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile-dev
-    container_name: template
+    container_name: social
     environment:
       - MONGOURL=${MONGOURL}
       - MONGOADMIN=${MONGOADMIN}
