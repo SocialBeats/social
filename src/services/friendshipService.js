@@ -1,6 +1,7 @@
 ﻿import mongoose from 'mongoose';
 import Friendship from '../models/Friendship.js';
 import logger from '../../logger.js';
+import { userCache } from '../utils/cache.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -115,23 +116,41 @@ export const listReceived = async (req, res) => {
       ),
     ];
 
+    // Check cache for missing users
+    const missingIds = userCache.getMissing(requesterIds);
+
     let usersMap = new Map();
-    if (requesterIds.length > 0) {
+
+    // Fetch only missing users from database
+    if (missingIds.length > 0) {
       const users = await mongoose.connection
         .useDb('user-auth')
         .collection('users')
         .find(
           {
             _id: {
-              $in: requesterIds.map((id) => new mongoose.Types.ObjectId(id)),
+              $in: missingIds.map((id) => new mongoose.Types.ObjectId(id)),
             },
           },
           { projection: { username: 1, email: 1, full_name: 1, avatar: 1 } }
         )
         .toArray();
 
-      usersMap = new Map(users.map((u) => [u._id.toString(), u]));
+      // Cache the fetched users
+      users.forEach((u) => {
+        const userId = u._id.toString();
+        userCache.set(userId, u);
+        usersMap.set(userId, u);
+      });
     }
+
+    // Get cached users
+    requesterIds.forEach((rid) => {
+      const cached = userCache.get(rid);
+      if (cached && !usersMap.has(rid)) {
+        usersMap.set(rid, cached);
+      }
+    });
 
     const enriched = (received || []).map((r) => {
       const rid = r.requester?.toString?.() || '';
