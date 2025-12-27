@@ -29,6 +29,7 @@
     "express": "^5.1.0",
     "js-yaml": "^4.1.0",
     "jsonwebtoken": "^9.0.2",
+    "kafkajs": "^2.2.4",
     "marked": "^17.0.0",
     "mongoose": "^8.19.3",
     "socket.io": "^4.8.1",
