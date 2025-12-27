@@ -4,23 +4,23 @@ services:
   mongodb:
     restart: unless-stopped
     image: mongo:latest
-    container_name: mongodb
+    container_name: mongodb-social
     environment:
       - MONGO_INITDB_ROOT_USERNAME=${MONGOADMIN}
       - MONGO_INITDB_ROOT_PASSWORD=${MONGOPASS}
     networks:
       - socialbeats-network
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
-      - mongo-data:/data/db
+      - mongo-data-social:/data/db
 
-  template:
+  social:
     restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile-dev
-    container_name: template
+    container_name: social
     environment:
       - MONGOURL=${MONGOURL}
       - MONGOADMIN=${MONGOADMIN}
@@ -42,9 +42,10 @@ services:
       - /app/node_modules
     command: nodemon --watch /app --legacy-watch --polling-interval 1000 main.js
 
+
 volumes:
-  mongo-data:
+  mongo-data-social:
 
 networks:
   socialbeats-network:
-    driver: bridge
+    external: true

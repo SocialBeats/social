@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { api } from '../setup/setup';
+import { api } from '../setup/integration.setup.js';
 
 describe('GET /api/v1/health', () => {
   it('should return 200 and the health payload', async () => {
