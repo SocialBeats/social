@@ -4,16 +4,16 @@ services:
   mongodb:
     restart: unless-stopped
     image: mongo:latest
-    container_name: mongodb
+    container_name: mongodb-social
     environment:
       - MONGO_INITDB_ROOT_USERNAME=${MONGOADMIN}
       - MONGO_INITDB_ROOT_PASSWORD=${MONGOPASS}
     networks:
       - socialbeats-network
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
-      - mongo-data:/data/db
+      - mongo-data-social:/data/db
 
   social:
     restart: unless-stopped
@@ -44,8 +44,8 @@ services:
 
 
 volumes:
-  mongo-data:
+  mongo-data-social:
 
 networks:
   socialbeats-network:
-    driver: bridge
+    external: true

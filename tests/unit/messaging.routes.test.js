@@ -20,7 +20,6 @@ vi.mock('../../src/controllers/messagingController.js', () => ({
 }));
 
 import messagingRoutes from '../../src/routes/messagingRoutes.js';
-import { fakeAuth } from '../../src/middlewares/fakeAuth.js';
 import { makeMessagingController } from '../../src/controllers/messagingController.js';
 
 describe('messagingRoutes unit tests', () => {
@@ -34,7 +33,7 @@ describe('messagingRoutes unit tests', () => {
     };
   });
 
-  it('monta /api/v1/social, aplica fakeAuth y registra endpoints correctamente', () => {
+  it('monta /api/v1/social y registra endpoints correctamente', () => {
     const ioStub = {};
     const controllerStub = {
       upsertDirectConversation: vi.fn(),
@@ -54,10 +53,6 @@ describe('messagingRoutes unit tests', () => {
     // controller factory invocado con io
     expect(makeMessagingController).toHaveBeenCalledTimes(1);
     expect(makeMessagingController).toHaveBeenCalledWith(ioStub);
-
-    // middleware aplicado a todas las rutas del router
-    expect(routerMock.use).toHaveBeenCalledTimes(1);
-    expect(routerMock.use).toHaveBeenCalledWith(fakeAuth);
 
     // Rutas registradas (path + handler)
     expect(routerMock.post).toHaveBeenCalledWith(
@@ -80,5 +75,9 @@ describe('messagingRoutes unit tests', () => {
     // Monta el router bajo el prefijo común
     expect(appMock.use).toHaveBeenCalledTimes(1);
     expect(appMock.use).toHaveBeenCalledWith('/api/v1/social', routerMock);
+
+    // Importante: fakeAuth se aplica en main.js (a nivel app), no se fuerza aquí.
+    // Si en el futuro decidís aplicarlo por router, añadid de nuevo la aserción:
+    // expect(routerMock.use).toHaveBeenCalledWith(fakeAuth);
   });
 });

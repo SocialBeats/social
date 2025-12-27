@@ -8,7 +8,7 @@ export default function messagingRoutes(app, io) {
   const controller = makeMessagingController(io);
 
   // Aplica fakeAuth a todas las rutas de mensajería
-  router.use(fakeAuth);
+  //router.use(fakeAuth);
 
   /**
    * @swagger

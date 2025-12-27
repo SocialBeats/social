@@ -7,6 +7,7 @@ import http from 'http';
 
 import logger from './logger.js';
 import { connectDB } from './src/db.js';
+import { fakeAuth } from './src/middlewares/fakeAuth.js';
 
 // import your middlewares here
 // import verifyToken from './src/middlewares/authMiddlewares.js';
@@ -15,6 +16,7 @@ import { connectDB } from './src/db.js';
 import aboutRoutes from './src/routes/aboutRoutes.js';
 import healthRoutes from './src/routes/healthRoutes.js';
 import messagingRoutes from './src/routes/messagingRoutes.js';
+import friendshipRoutes from './src/routes/friendshipRoutes.js';
 
 import { initSocket } from './src/services/socketService.js';
 
@@ -29,12 +31,14 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+healthRoutes(app);
 // add your middlewares here like this:
 // app.use(verifyToken);
+app.use(fakeAuth);
 
 // add your routes here like this:
 aboutRoutes(app);
-healthRoutes(app);
+friendshipRoutes(app);
 
 // Export app for tests. Do not remove this line
 export default app;
