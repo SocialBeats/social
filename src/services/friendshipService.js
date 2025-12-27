@@ -82,6 +82,7 @@ export const sendRequest = async (req, res) => {
       recipient: recipientId,
     });
     await doc.save();
+
     return res.status(201).json(doc);
   } catch (err) {
     if (err && (err.code === 11000 || err.code === 'E11000')) {
@@ -198,6 +199,7 @@ export const respondRequest = async (req, res) => {
 
     requestDoc.status = action === 'accept' ? 'accepted' : 'rejected';
     await requestDoc.save();
+
     return res.status(200).json(requestDoc);
   } catch (err) {
     logger.error(`respondRequest error: ${err.message}`);
@@ -299,6 +301,7 @@ export const removeFriend = async (req, res) => {
     });
     if (!removed)
       return res.status(404).json({ message: 'Friendship not found' });
+
     return res.status(200).json({ message: 'Friendship removed' });
   } catch (err) {
     logger.error(`removeFriend error: ${err.message}`);
