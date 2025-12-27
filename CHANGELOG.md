@@ -1,3 +1,30 @@
+# Release v0.0.2
+
+## Features
+- feat: kafka implementation
+- feat: add in-memory user cache with TTL for friendship service
+
+## Tests
+No test changes.
+## Documentation
+No documentation changes.
+## Fixes
+- fix: added changelog
+- fix: deleted changelog
+- fix: adjust docker config and minor improvements
+- fix: mock mongo connection and fix friendship service for unit tests
+
+## Continuous integration (CI)
+No CI changes.
+## Other changes
+- Merge pull request #18 from SocialBeats/develop
+- Merge branch 'main' into develop
+- Merge branch 'develop' of https://github.com/SocialBeats/social into develop # Please enter a commit message to explain why this merge is necessary, # especially if it merges an updated upstream into a topic branch. # # Lines starting with '#' will be ignored, and an empty message aborts # the commit.
+
+## Full commit history
+
+For full commit history, see [here](https://github.com/SocialBeats/social/compare/v0.0.1...v0.0.2).
+
 # Release v0.0.1
 
 ## Features
