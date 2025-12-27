@@ -11,9 +11,9 @@ services:
     networks:
       - socialbeats-network
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
-      - mongo-data:/data/db
+      - mongo-data.social:/data/db
 
   social:
     restart: unless-stopped
@@ -43,4 +43,5 @@ volumes:
 
 networks:
   socialbeats-network:
-    driver: bridge
+    external: true
+

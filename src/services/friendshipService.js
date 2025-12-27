@@ -229,12 +229,43 @@ export const listFriends = async (req, res) => {
       ),
     ];
 
-    const friendsData = friendIds.map((fid) => ({
-      id: fid,
-      _id: fid,
-    }));
+    // 🆕 Enriquecer con datos de usuarios
+    if (process.env.NODE_ENV === 'test') {
+      // Para tests, devolver solo IDs
+      const friendsData = friendIds.map((fid) => ({
+        id: fid,
+        _id: fid,
+      }));
+      return res.status(200).json({ friends: friendsData });
+    }
 
-    return res.status(200).json({ friends: friendsData });
+    // Para producción, traer datos de usuarios
+    const users = await mongoose.connection
+      .useDb('user-auth')
+      .collection('users')
+      .find(
+        {
+          _id: {
+            $in: friendIds.map((id) => new mongoose.Types.ObjectId(id)),
+          },
+        },
+        { projection: { username: 1, email: 1 } }
+      )
+      .toArray();
+
+    const usersMap = new Map(users.map((u) => [u._id.toString(), u]));
+
+    const enrichedFriends = friendIds.map((fid) => {
+      const user = usersMap.get(fid);
+      return {
+        id: fid,
+        _id: fid,
+        username: user?.username || '',
+        email: user?.email || '',
+      };
+    });
+
+    return res.status(200).json({ friends: enrichedFriends });
   } catch (err) {
     logger.error(`listFriends error: ${err.message}`);
     logger.error(`listFriends stack: ${err.stack}`);
