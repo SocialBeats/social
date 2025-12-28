@@ -14,6 +14,10 @@ import {
   disconnectKafkaProducer,
   isKafkaEnabled,
 } from './src/services/kafkaProducer.js';
+import {
+  startKafkaConsumer,
+  disconnectKafkaConsumer,
+} from './src/services/kafkaConsumer.js';
 // import your middlewares here
 // import verifyToken from './src/middlewares/authMiddlewares.js';
 
@@ -59,14 +63,15 @@ if (process.env.NODE_ENV !== 'test') {
 
   // Rutas de mensajería
   messagingRoutes(app, io);
- 
+
   if (isKafkaEnabled()) {
-    logger.warn('Kafka is enabled, trying to connect producer');
+    logger.warn('Kafka is enabled, trying to connect producer and consumer');
     await connectKafkaProducer();
+    await startKafkaConsumer();
   } else {
     logger.warn('Kafka is not enabled');
   }
-  
+
   // IMPORTANTE: escuchar con httpServer, no con app
   httpServer.listen(PORT, () => {
     logger.warn(`Using log level: ${process.env.LOG_LEVEL}`);
@@ -86,9 +91,10 @@ async function gracefulShutdown(signal) {
 
   try {
     if (isKafkaEnabled()) {
-      logger.warn('Disconnecting Kafka producer...');
+      logger.warn('Disconnecting Kafka producer and consumer...');
       await disconnectKafkaProducer();
-      logger.warn('Kafka producer disconnected.');
+      await disconnectKafkaConsumer();
+      logger.warn('Kafka producer and consumer disconnected.');
     }
   } catch (err) {
     logger.error('Error disconnecting Kafka:', err);
