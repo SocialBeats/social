@@ -1,5 +1,6 @@
 import { getVersion } from '../utils/versionUtils.js';
 import mongoose from 'mongoose';
+import { isKafkaConnected } from '../services/kafkaConsumer.js';
 
 export default function healthRoutes(app) {
   const version = getVersion();
@@ -42,10 +43,16 @@ export default function healthRoutes(app) {
    *                 db:
    *                   type: string
    *                   example: connected
+   *                 kafka:
+   *                   type: string
+   *                   example: connected
    */
-  app.get('/api/v1/health', (req, res) => {
+  app.get('/api/v1/health', async (req, res) => {
     const dbStatus =
       mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    const kafkaStatus = (await isKafkaConnected())
+      ? 'connected'
+      : 'disconnected';
     res.status(200).json({
       status: 'ok',
       message: 'Health check successful',
@@ -54,6 +61,7 @@ export default function healthRoutes(app) {
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV,
       db: dbStatus,
+      kafka: kafkaStatus,
     });
   });
 }

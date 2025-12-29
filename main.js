@@ -3,21 +3,34 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import http from 'http';
+
 import logger from './logger.js';
+import { fakeAuth } from './src/middlewares/fakeAuth.js';
+
 import { connectDB, disconnectDB } from './src/db.js';
 import {
   connectKafkaProducer,
   disconnectKafkaProducer,
   isKafkaEnabled,
 } from './src/services/kafkaProducer.js';
+import {
+  startKafkaConsumer,
+  disconnectKafkaConsumer,
+} from './src/services/kafkaConsumer.js';
 // import your middlewares here
-import verifyToken from './src/middlewares/authMiddlewares.js';
+// import verifyToken from './src/middlewares/authMiddlewares.js';
+
 // import your routes here
 import aboutRoutes from './src/routes/aboutRoutes.js';
 import healthRoutes from './src/routes/healthRoutes.js';
+import messagingRoutes from './src/routes/messagingRoutes.js';
 import friendshipRoutes from './src/routes/friendshipRoutes.js';
-import messageRoutes from './src/routes/messageRoutes.js';
 import feedRoutes from './src/routes/feedRoutes.js';
+import ensureIndexes from './src/services/indexes.js';
+import ensureKafkaTopics from './src/services/kafkaAdmin.js';
+
+import { initSocket } from './src/services/socketService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,16 +43,15 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+healthRoutes(app);
 // add your middlewares here like this:
-app.use(verifyToken);
+// app.use(verifyToken);
+app.use(fakeAuth);
 
 // add your routes here like this:
 aboutRoutes(app);
-healthRoutes(app);
 friendshipRoutes(app);
-messageRoutes(app);
 feedRoutes(app);
-
 // Export app for tests. Do not remove this line
 export default app;
 
@@ -47,21 +59,36 @@ let server;
 
 if (process.env.NODE_ENV !== 'test') {
   await connectDB();
+  await ensureIndexes();
+
+  // Crear servidor HTTP y enganchar Socket.IO
+  const httpServer = http.createServer(app);
+  const io = initSocket(httpServer);
+
+  // Rutas de mensajería
+  messagingRoutes(app, io);
 
   if (isKafkaEnabled()) {
-    logger.warn('Kafka is enabled, trying to connect producer');
+    logger.warn('Kafka is enabled, trying to connect producer and consumer');
+    await ensureKafkaTopics(['social-events', 'social-dlq']);
     await connectKafkaProducer();
+    await startKafkaConsumer();
   } else {
     logger.warn('Kafka is not enabled');
   }
 
-  server = app.listen(PORT, () => {
+  // IMPORTANTE: escuchar con httpServer, no con app
+  httpServer.listen(PORT, () => {
     logger.warn(`Using log level: ${process.env.LOG_LEVEL}`);
     logger.info(`API running at http://localhost:${PORT}`);
     logger.info(`Health at http://localhost:${PORT}/api/v1/health`);
     logger.info(`API docs running at http://localhost:${PORT}/api/v1/docs/`);
     logger.info(`Environment: ${process.env.NODE_ENV}`);
   });
+} else {
+  // En test: no levantamos socket real, pero montamos las rutas con un stub
+  const ioStub = { to: () => ({ emit: () => {} }) };
+  messagingRoutes(app, ioStub);
 }
 
 async function gracefulShutdown(signal) {
@@ -69,9 +96,10 @@ async function gracefulShutdown(signal) {
 
   try {
     if (isKafkaEnabled()) {
-      logger.warn('Disconnecting Kafka producer...');
+      logger.warn('Disconnecting Kafka producer and consumer...');
       await disconnectKafkaProducer();
-      logger.warn('Kafka producer disconnected.');
+      await disconnectKafkaConsumer();
+      logger.warn('Kafka producer and consumer disconnected.');
     }
   } catch (err) {
     logger.error('Error disconnecting Kafka:', err);

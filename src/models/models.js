@@ -1,5 +1,4 @@
-import Feed from './Feed.js';
-import Friendship from './Friendship.js';
-import Message from './Message.js';
-
-export { Feed, Friendship, Message };
+export { default as Conversation } from './Conversation.js';
+export { default as Message } from './Message.js';
+export { default as Feed } from './Feed.js';
+export { default as Friendship } from './Friendship.js';

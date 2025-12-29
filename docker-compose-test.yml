@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  mongodb:
+    restart: "unless-stopped"
+    image: mongo:latest
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=
+      - MONGO_INITDB_ROOT_PASSWORD=
+    networks:
+      - socialbeats-network
+    ports:
+      - "0:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - mongo-data-test:/data/db
+
+  social:
+    restart: "unless-stopped"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - MONGOURL=mongodb://mongodb:27017/microservice-social_test
+      - MONGOADMIN=
+      - MONGOPASS=
+      - NODE_ENV=test
+      - PORT=3004
+      - LOG_LEVEL=info
+      - JWT_SECRET=secret
+      - API_TITLE=Social microservice API
+      - API_DESCRIPTION=This is an OAS description of this social microservice REST API
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - socialbeats-network
+    ports:
+      - "0:${PORT}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3004/api/v1/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    volumes:
+      - ./:/app:cached
+      - /app/node_modules
+    command: node main.js
+
+volumes:
+  mongo-data-test:
+
+networks:
+  socialbeats-network:
+    driver: bridge

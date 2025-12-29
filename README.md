@@ -163,7 +163,7 @@ A basic Node.js microservice designed to manage social interactions between user
    ***
 
    **General Notes:**
-   - By default, your microservice will run on **port 3000**
+   - By default, your microservice will run on **port 3004**
    - Use **API_TITLE** and **API_DESCRIPTION** environment variables to customize the Swagger UI
    - The **JWT_SECRET** should be changed in production environments
    - Adjust **LOG_LEVEL** (error, warn, info, verbose, debug, silly) based on your needs
@@ -180,6 +180,12 @@ test coverage by running this command.
 
 ```bash
 npm run test:coverage
+```
+
+### Integration Tests
+
+```bash
+npm run test:integration
 ```
 
 ## Logging

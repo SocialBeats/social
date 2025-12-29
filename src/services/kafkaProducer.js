@@ -83,8 +83,11 @@ export async function publishSocialEvent(eventType, payload) {
     };
 
     // Derive a stable message key to maintain predictable partitioning
+    // For FEED_* events, use targetUserId so each user's feed events are partitioned together
     let messageKey;
-    if (payload && (payload._id != null || payload.userId != null)) {
+    if (payload && payload.targetUserId != null) {
+      messageKey = payload.targetUserId.toString();
+    } else if (payload && (payload._id != null || payload.userId != null)) {
       const identifier = payload._id ?? payload.userId;
       messageKey = identifier.toString();
     } else {
