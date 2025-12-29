@@ -1,29 +1,19 @@
 # Release v0.0.1
 
 ## Features
-
 No new features.
-
 ## Tests
-
 No test changes.
-
 ## Documentation
-
 No documentation changes.
-
 ## Fixes
-
 - fix: Change PORT from 3000 to 3004
 - fix: Change PORT from 3000 to 3004
 - fix: Change application port from 3000 to 3004
 
 ## Continuous integration (CI)
-
 No CI changes.
-
 ## Other changes
-
 - Merge pull request #12 from SocialBeats/develop
 - Merge branch 'main' into develop
 - Merge pull request #11 from SocialBeats/feat/getFeed
@@ -40,3 +30,4 @@ No CI changes.
 ## Full commit history
 
 For full commit history, see [here](https://github.com/SocialBeats/social/compare/...v0.0.1).
+
