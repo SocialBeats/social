@@ -120,6 +120,104 @@ components:
       description: >-
         Represents a message sent by a user within a conversation. Messages are
         returned chronologically (oldest to newest) in listMessages.
+    Friendship:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 64f0c2b9b3b2c1a0d1e2f999
+        requester:
+          type: string
+          example: 64f0c2b9b3b2c1a0d1e2f111
+          description: User who sent the request
+        recipient:
+          type: string
+          example: 64f0c2b9b3b2c1a0d1e2f222
+          description: User who received the request
+        status:
+          type: string
+          enum:
+            - pending
+            - accepted
+            - rejected
+          example: pending
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - _id
+        - requester
+        - recipient
+        - status
+        - createdAt
+        - updatedAt
+      description: Friendship relation between two users.
+    FriendshipRequest:
+      type: object
+      properties:
+        recipientId:
+          type: string
+          example: 64f0c2b9b3b2c1a0d1e2f222
+      required:
+        - recipientId
+    FriendshipRespondRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          enum:
+            - accept
+            - reject
+          example: accept
+      required:
+        - action
+    FriendshipListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Friendship'
+        count:
+          type: integer
+          example: 2
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+      required:
+        - items
+    FriendSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 64f0c2b9b3b2c1a0d1e2f222
+        _id:
+          type: string
+          example: 64f0c2b9b3b2c1a0d1e2f222
+        username:
+          type: string
+          example: johndoe
+        email:
+          type: string
+          example: john@example.com
+      required:
+        - id
+    FriendsResponse:
+      type: object
+      properties:
+        friends:
+          type: array
+          items:
+            $ref: '#/components/schemas/FriendSummary'
+      required:
+        - friends
     PaginatedConversations:
       type: object
       properties:
@@ -198,6 +296,216 @@ paths:
                 description: The HTML content of the README file.
         '500':
           description: Error reading the README file.
+  /api/v1/friendships:
+    post:
+      tags:
+        - Friendships
+      summary: Send a friendship request
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendshipRequest'
+      responses:
+        '201':
+          description: Friendship request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Friendship'
+        '200':
+          description: Friendship request reactivated or auto-accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Friendship'
+        '400':
+          description: Invalid user id or self-request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Recipient not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Duplicate or pending request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/friendships/received:
+    get:
+      tags:
+        - Friendships
+      summary: List pending friendship requests received
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Pending requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Friendship'
+        '400':
+          description: Invalid user id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/friendships/{id}/respond:
+    patch:
+      tags:
+        - Friendships
+      summary: Accept or reject a friendship request
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Friendship request id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FriendshipRespondRequest'
+      responses:
+        '200':
+          description: Request processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Friendship'
+        '400':
+          description: Invalid id or action
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not allowed to respond to this request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request already processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/friends:
+    get:
+      tags:
+        - Friendships
+      summary: List accepted friends for the authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Friends list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendsResponse'
+        '400':
+          description: Invalid user id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/friends/{id}:
+    delete:
+      tags:
+        - Friendships
+      summary: Remove an existing friend
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Friend user id
+      responses:
+        '200':
+          description: Friendship removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Friendship removed
+        '400':
+          description: Invalid id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Friendship not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
           content:
             text/plain:
               schema:
