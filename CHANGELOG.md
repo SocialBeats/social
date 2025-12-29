@@ -1,3 +1,49 @@
+# Release v0.0.3
+
+## Features
+- feat: added oas documentation for frienships
+- feat: rebuild 1:1 messaging with REST + Socket.IO
+- feat: implementar CRUD de mensajes y actualización de conversaciones
+- feat: Implementar CRUD de conversaciones
+- feat: añadir funcionalidades al modulo de mensajes
+
+## Tests
+- test: corregir tests de integracion y el middleware
+- test: cambio en los tests de integracion para cubrir la mensajeria solo entre amigos
+- test: implementar tests de integracion del modulo de mensajeria
+- test: implementar tests unitarios de mensajeria
+- test: implementar test unitarios para el modelo Message
+- test: implementar test unitarios para el modelo Conversation
+
+## Documentation
+- docs: documentar endpoints de mensajeria
+
+## Fixes
+- fix: changelog lint fixed
+- fix: changelog lint fixed
+- fix: lint rework
+- fix: auto-fix fixed
+- fix: manual lint implementation
+- fix: kafka consumer duplicated
+- fix: feed and kafka rebuilt
+- fix: Kafka configuration
+- fix: resolver conflictos al hacer merge con develop
+- fix: arreglar el arranque en compose
+
+## Continuous integration (CI)
+No CI changes.
+## Other changes
+- Merge pull request #19 from SocialBeats/develop
+- Merge pull request #17 from SocialBeats/feat/messages
+- Merge branch 'develop' into feat/messages
+- chore: reemplazar template como nombre del contenedor
+- chore: actualizar readme y nombre del container
+- chore: recuperar -env.example y actualizar archivos de docker-compose
+
+## Full commit history
+
+For full commit history, see [here](https://github.com/SocialBeats/social/compare/v0.0.2...v0.0.3).
+
 # Release v0.0.2
 
 ## Features
