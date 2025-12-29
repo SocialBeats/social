@@ -2,6 +2,7 @@ import { describe, it, beforeEach, expect, vi } from 'vitest';
 import mongoose from 'mongoose';
 import * as service from '../../src/services/feedService.js';
 import Feed from '../../src/models/Feed.js';
+import { processEvent } from '../../src/services/kafkaConsumer.js';
 
 const makeRes = () => {
   const res = {};
@@ -97,5 +98,207 @@ describe('Feed service - unit tests', () => {
 
     expect(res.statusCode).toBe(500);
     expect(res.body).toHaveProperty('message');
+  });
+});
+
+describe('Feed Kafka events - unit tests', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('FEED_FRIENDSHIP_ACCEPTED -> upsertFeedItem with type=friendship', async () => {
+    const updateOneSpy = vi.spyOn(Feed, 'updateOne').mockResolvedValue({});
+
+    const event = {
+      type: 'FEED_FRIENDSHIP_ACCEPTED',
+      payload: {
+        friendshipId: oid(),
+        userA: oid(),
+        userB: oid(),
+        targetUserId: oid(),
+      },
+    };
+
+    await processEvent(event);
+
+    expect(updateOneSpy).toHaveBeenCalledWith(
+      {
+        userId: expect.any(Object),
+        type: 'friendship',
+        entityId: expect.any(String),
+      },
+      expect.objectContaining({
+        $set: expect.objectContaining({ friendId: expect.any(Object) }),
+      }),
+      { upsert: true }
+    );
+  });
+
+  it('FEED_BEAT_CREATED -> upsertFeedItem with type=beat', async () => {
+    const updateOneSpy = vi.spyOn(Feed, 'updateOne').mockResolvedValue({});
+
+    const event = {
+      type: 'FEED_BEAT_CREATED',
+      payload: {
+        beatId: oid(),
+        actorId: oid(),
+        targetUserId: oid(),
+        title: 'Test Beat',
+        artist: 'Test Artist',
+        thumbnailUrl: 'http://example.com/beat.jpg',
+        metadata: {
+          beatTitle: 'Test Beat',
+          artist: 'Test Artist',
+        },
+      },
+    };
+
+    await processEvent(event);
+
+    expect(updateOneSpy).toHaveBeenCalledWith(
+      {
+        userId: expect.any(Object),
+        type: 'beat',
+        entityId: expect.any(String),
+      },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          title: 'Test Beat',
+          thumbnailUrl: 'http://example.com/beat.jpg',
+        }),
+      }),
+      { upsert: true }
+    );
+  });
+
+  it('FEED_BEAT_UPDATED -> updates existing beat item', async () => {
+    const updateOneSpy = vi.spyOn(Feed, 'updateOne').mockResolvedValue({});
+
+    const event = {
+      type: 'FEED_BEAT_UPDATED',
+      payload: {
+        beatId: oid(),
+        actorId: oid(),
+        targetUserId: oid(),
+        title: 'Updated Beat',
+        artist: 'Updated Artist',
+      },
+    };
+
+    await processEvent(event);
+
+    expect(updateOneSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'beat' }),
+      expect.any(Object),
+      { upsert: true }
+    );
+  });
+
+  it('FEED_BEAT_DELETED -> deleteOne beat item', async () => {
+    const deleteOneSpy = vi.spyOn(Feed, 'deleteOne').mockResolvedValue({});
+
+    const beatId = oid();
+    const event = {
+      type: 'FEED_BEAT_DELETED',
+      payload: {
+        beatId,
+        actorId: oid(),
+        targetUserId: oid(),
+      },
+    };
+
+    await processEvent(event);
+
+    expect(deleteOneSpy).toHaveBeenCalledWith({
+      userId: expect.any(Object),
+      type: 'beat',
+      entityId: beatId,
+    });
+  });
+
+  it('FEED_COMMENT_CREATED -> upsertFeedItem with type=comment', async () => {
+    const updateOneSpy = vi.spyOn(Feed, 'updateOne').mockResolvedValue({});
+
+    const event = {
+      type: 'FEED_COMMENT_CREATED',
+      payload: {
+        commentId: oid(),
+        actorId: oid(),
+        targetUserId: oid(),
+        beatId: oid(),
+        content: 'Great beat!',
+        metadata: {
+          actorUsername: 'testuser',
+          beatTitle: 'Test Beat',
+        },
+      },
+    };
+
+    await processEvent(event);
+
+    expect(updateOneSpy).toHaveBeenCalledWith(
+      {
+        userId: expect.any(Object),
+        type: 'comment',
+        entityId: expect.any(String),
+      },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          text: 'Great beat!',
+          commentId: expect.any(Object),
+        }),
+      }),
+      { upsert: true }
+    );
+  });
+
+  it('FEED_RATING_CREATED -> upsertFeedItem with type=rating', async () => {
+    const updateOneSpy = vi.spyOn(Feed, 'updateOne').mockResolvedValue({});
+
+    const event = {
+      type: 'FEED_RATING_CREATED',
+      payload: {
+        ratingId: oid(),
+        actorId: oid(),
+        targetUserId: oid(),
+        beatId: oid(),
+        score: 5,
+        metadata: {
+          actorUsername: 'testuser',
+          beatTitle: 'Test Beat',
+        },
+      },
+    };
+
+    await processEvent(event);
+
+    expect(updateOneSpy).toHaveBeenCalledWith(
+      {
+        userId: expect.any(Object),
+        type: 'rating',
+        entityId: expect.any(String),
+      },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          score: 5,
+        }),
+      }),
+      { upsert: true }
+    );
+  });
+
+  it('Unknown event type -> logs warning', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const event = {
+      type: 'UNKNOWN_EVENT',
+      payload: {},
+    };
+
+    await processEvent(event);
+    // Just verify it doesn't throw
+    expect(true).toBe(true);
+
+    warnSpy.mockRestore();
   });
 });

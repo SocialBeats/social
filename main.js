@@ -26,6 +26,9 @@ import aboutRoutes from './src/routes/aboutRoutes.js';
 import healthRoutes from './src/routes/healthRoutes.js';
 import messagingRoutes from './src/routes/messagingRoutes.js';
 import friendshipRoutes from './src/routes/friendshipRoutes.js';
+import feedRoutes from './src/routes/feedRoutes.js';
+import ensureIndexes from './src/services/indexes.js';
+import ensureKafkaTopics from './src/services/kafkaAdmin.js';
 
 import { initSocket } from './src/services/socketService.js';
 
@@ -48,7 +51,7 @@ app.use(fakeAuth);
 // add your routes here like this:
 aboutRoutes(app);
 friendshipRoutes(app);
-
+feedRoutes(app);
 // Export app for tests. Do not remove this line
 export default app;
 
@@ -56,6 +59,7 @@ let server;
 
 if (process.env.NODE_ENV !== 'test') {
   await connectDB();
+  await ensureIndexes();
 
   // Crear servidor HTTP y enganchar Socket.IO
   const httpServer = http.createServer(app);
@@ -66,6 +70,7 @@ if (process.env.NODE_ENV !== 'test') {
 
   if (isKafkaEnabled()) {
     logger.warn('Kafka is enabled, trying to connect producer and consumer');
+    await ensureKafkaTopics(['social-events', 'social-dlq']);
     await connectKafkaProducer();
     await startKafkaConsumer();
   } else {

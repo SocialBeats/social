@@ -1,5 +1,10 @@
+import mongoose from 'mongoose';
 import { Kafka } from 'kafkajs';
 import logger from '../../logger.js';
+import Friendship from '../models/Friendship.js';
+import Feed from '../models/Feed.js';
+import { publishSocialEvent, isKafkaEnabled } from './kafkaProducer.js';
+import { getFriendIds, asObjectId } from './friendHelper.js';
 
 const kafka = new Kafka({
   clientId: 'social-service',
@@ -12,6 +17,63 @@ const producer = kafka.producer();
 
 const admin = kafka.admin();
 
+async function publishFeedEventToFriends(eventType, actorId, payloadBuilder) {
+  if (!isKafkaEnabled()) return;
+
+  const friendIds = await getFriendIds(actorId);
+  if (!friendIds.length) return;
+
+  for (const friendId of friendIds) {
+    const basePayload =
+      typeof payloadBuilder === 'function'
+        ? payloadBuilder(friendId)
+        : payloadBuilder;
+
+    await publishSocialEvent(eventType, {
+      ...basePayload,
+      actorId,
+      targetUserId: friendId,
+      userId: friendId,
+    });
+  }
+}
+
+async function upsertFeedItem({
+  userId,
+  type,
+  entityId,
+  actorId,
+  beatId = null,
+  friendId = null,
+  commentId = null,
+  title = null,
+  text = null,
+  thumbnailUrl = null,
+  score = null,
+  metadata = undefined,
+}) {
+  if (!userId || !type || !entityId || !actorId) return;
+
+  await Feed.updateOne(
+    { userId, type, entityId },
+    {
+      $setOnInsert: { createdAt: new Date() },
+      $set: {
+        actorId,
+        beatId,
+        friendId,
+        commentId,
+        title,
+        text,
+        thumbnailUrl,
+        score,
+        metadata,
+      },
+    },
+    { upsert: true }
+  );
+}
+
 /**
  * Processes incoming Kafka events
  * @param {Object} event - The event object with type and payload
@@ -21,21 +83,43 @@ async function processEvent(event) {
 
   switch (event.type) {
     // Eventos de beats-interaction que nos interesan
-    case 'COMMENT_CREATED':
+    case 'COMMENT_CREATED': {
       logger.info(
         `Comment created on beat ${data.beatId} by user ${data.authorId}`
       );
-      // Aquí puedes agregar lógica adicional, por ejemplo:
-      // - Actualizar feed del usuario
-      // - Notificar a amigos
+      const actorId = data.authorId || data.userId;
+      if (actorId) {
+        await publishFeedEventToFriends('FEED_COMMENT_CREATED', actorId, {
+          beatId: data.beatId,
+          commentId: data._id,
+          content: data.content,
+          metadata: {
+            actorUsername: data.authorName || data.authorUsername || null,
+            beatTitle: data.beatTitle || null,
+          },
+        });
+      }
       break;
+    }
 
-    case 'RATING_CREATED':
+    case 'RATING_CREATED': {
       logger.info(
         `Rating created on beat ${data.beatId} by user ${data.userId}`
       );
-      // Aquí puedes agregar lógica adicional
+      const actorId = data.userId;
+      if (actorId) {
+        await publishFeedEventToFriends('FEED_RATING_CREATED', actorId, {
+          beatId: data.beatId,
+          ratingId: data._id,
+          score: data.score,
+          metadata: {
+            actorUsername: data.username || null,
+            beatTitle: data.beatTitle || null,
+          },
+        });
+      }
       break;
+    }
 
     case 'PLAYLIST_CREATED':
       logger.info(`Playlist created: ${data.name} by user ${data.ownerId}`);
@@ -72,22 +156,161 @@ async function processEvent(event) {
       break;
 
     // Eventos de beats que nos interesan
-    case 'BEAT_CREATED':
+    case 'BEAT_CREATED': {
       logger.info(`New beat created: ${data.title} by ${data.artist}`);
-      // Aquí puedes agregar lógica adicional:
-      // - Actualizar feed de amigos del artista
-      // - Crear notificaciones
+      const actorId =
+        data.artistId || data.ownerId || data.userId || data.authorId;
+      if (actorId) {
+        await publishFeedEventToFriends('FEED_BEAT_CREATED', actorId, {
+          beatId: data._id,
+          title: data.title,
+          artist: data.artist,
+          thumbnailUrl: data.coverUrl || data.thumbnailUrl || null,
+          metadata: {
+            beatTitle: data.title,
+            artist: data.artist,
+          },
+        });
+      }
       break;
+    }
 
-    case 'BEAT_UPDATED':
+    case 'BEAT_UPDATED': {
       logger.info(`Beat updated: ${data._id}`);
-      // Aquí puedes agregar lógica adicional
+      const actorId =
+        data.artistId || data.ownerId || data.userId || data.authorId;
+      if (actorId) {
+        await publishFeedEventToFriends('FEED_BEAT_UPDATED', actorId, {
+          beatId: data._id,
+          title: data.title,
+          artist: data.artist,
+          thumbnailUrl: data.coverUrl || data.thumbnailUrl || null,
+          metadata: {
+            beatTitle: data.title,
+            artist: data.artist,
+          },
+        });
+      }
       break;
+    }
 
-    case 'BEAT_DELETED':
+    case 'BEAT_DELETED': {
       logger.info(`Beat deleted: ${data._id}`);
-      // Aquí puedes agregar lógica adicional
+      const actorId =
+        data.artistId || data.ownerId || data.userId || data.authorId;
+      if (actorId) {
+        await publishFeedEventToFriends('FEED_BEAT_DELETED', actorId, {
+          beatId: data._id,
+          title: data.title,
+          artist: data.artist,
+          metadata: {
+            beatTitle: data.title,
+            artist: data.artist,
+          },
+        });
+      }
       break;
+    }
+
+    // Eventos internos del topic social-events para materializar el feed
+    case 'FEED_FRIENDSHIP_ACCEPTED': {
+      const targetUserId = asObjectId(event.payload?.targetUserId);
+      const actorId = asObjectId(event.payload?.userA);
+      const friendId = asObjectId(event.payload?.userB);
+      if (!targetUserId || !actorId || !friendId) break;
+
+      await upsertFeedItem({
+        userId: targetUserId,
+        type: 'friendship',
+        entityId: String(event.payload.friendshipId),
+        actorId,
+        friendId,
+        title: 'Nueva amistad',
+        metadata: {
+          userA: event.payload.userA,
+          userB: event.payload.userB,
+        },
+      });
+      break;
+    }
+
+    case 'FEED_BEAT_CREATED':
+    case 'FEED_BEAT_UPDATED': {
+      const targetUserId = asObjectId(event.payload?.targetUserId);
+      const actorId = asObjectId(event.payload?.actorId);
+      if (!targetUserId || !actorId) break;
+
+      await upsertFeedItem({
+        userId: targetUserId,
+        type: 'beat',
+        entityId: String(event.payload.beatId),
+        actorId,
+        beatId: asObjectId(event.payload.beatId),
+        title: event.payload.title,
+        thumbnailUrl: event.payload.thumbnailUrl,
+        metadata: {
+          artist: event.payload.artist,
+          actorUsername: event.payload.metadata?.actorUsername,
+          beatTitle: event.payload.metadata?.beatTitle || event.payload.title,
+        },
+      });
+      break;
+    }
+
+    case 'FEED_BEAT_DELETED': {
+      const targetUserId = asObjectId(event.payload?.targetUserId);
+      if (!targetUserId) break;
+
+      await Feed.deleteOne({
+        userId: targetUserId,
+        type: 'beat',
+        entityId: String(event.payload?.beatId),
+      });
+      break;
+    }
+
+    case 'FEED_COMMENT_CREATED': {
+      const targetUserId = asObjectId(event.payload?.targetUserId);
+      const actorId = asObjectId(event.payload?.actorId);
+      if (!targetUserId || !actorId) break;
+
+      await upsertFeedItem({
+        userId: targetUserId,
+        type: 'comment',
+        entityId: String(event.payload.commentId || event.payload._id),
+        actorId,
+        beatId: asObjectId(event.payload.beatId),
+        commentId: asObjectId(event.payload.commentId || event.payload._id),
+        text: event.payload.content,
+        metadata: {
+          beatId: event.payload.beatId,
+          actorUsername: event.payload.metadata?.actorUsername,
+          beatTitle: event.payload.metadata?.beatTitle,
+        },
+      });
+      break;
+    }
+
+    case 'FEED_RATING_CREATED': {
+      const targetUserId = asObjectId(event.payload?.targetUserId);
+      const actorId = asObjectId(event.payload?.actorId);
+      if (!targetUserId || !actorId) break;
+
+      await upsertFeedItem({
+        userId: targetUserId,
+        type: 'rating',
+        entityId: String(event.payload.ratingId || event.payload._id),
+        actorId,
+        beatId: asObjectId(event.payload.beatId),
+        score: event.payload.score,
+        metadata: {
+          beatId: event.payload.beatId,
+          actorUsername: event.payload.metadata?.actorUsername,
+          beatTitle: event.payload.metadata?.beatTitle,
+        },
+      });
+      break;
+    }
 
     default:
       logger.warn(`⚠ Unknown event detected: ${event.type}`);
@@ -147,6 +370,10 @@ export async function startKafkaConsumer() {
       });
       await consumer.subscribe({
         topic: 'beats-interaction-events',
+        fromBeginning: false,
+      });
+      await consumer.subscribe({
+        topic: 'social-events',
         fromBeginning: false,
       });
 

@@ -2,6 +2,8 @@
 import Friendship from '../models/Friendship.js';
 import logger from '../../logger.js';
 import { userCache } from '../utils/cache.js';
+import { publishSocialEvent, isKafkaEnabled } from './kafkaProducer.js';
+import { getFriendIds, asObjectId } from './friendHelper.js';
 
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -199,6 +201,35 @@ export const respondRequest = async (req, res) => {
 
     requestDoc.status = action === 'accept' ? 'accepted' : 'rejected';
     await requestDoc.save();
+
+    if (requestDoc.status === 'accepted' && isKafkaEnabled()) {
+      const requesterId = requestDoc.requester?.toString?.();
+      const recipientId = requestDoc.recipient?.toString?.();
+
+      if (requesterId && recipientId) {
+        const friendsOfRequester = (await getFriendIds(requesterId)).filter(
+          (fid) => fid !== recipientId
+        );
+        const friendsOfRecipient = (await getFriendIds(recipientId)).filter(
+          (fid) => fid !== requesterId
+        );
+
+        const audience = new Set([
+          ...friendsOfRequester,
+          ...friendsOfRecipient,
+        ]);
+
+        for (const targetUserId of audience) {
+          await publishSocialEvent('FEED_FRIENDSHIP_ACCEPTED', {
+            friendshipId: requestDoc._id?.toString?.() || requestDoc._id,
+            userA: requesterId,
+            userB: recipientId,
+            targetUserId,
+            userId: targetUserId,
+          });
+        }
+      }
+    }
 
     return res.status(200).json(requestDoc);
   } catch (err) {
