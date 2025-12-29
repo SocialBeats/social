@@ -3,6 +3,7 @@ import { Kafka } from 'kafkajs';
 import logger from '../../logger.js';
 import Friendship from '../models/Friendship.js';
 import Feed from '../models/Feed.js';
+import User from '../models/User.js';
 import { publishSocialEvent, isKafkaEnabled } from './kafkaProducer.js';
 import { getFriendIds, asObjectId } from './friendHelper.js';
 
@@ -137,15 +138,78 @@ async function processEvent(event) {
       break;
 
     // Eventos de users que nos interesan
-    case 'USER_CREATED':
-      logger.info(`New user created: ${data.username} (${data._id})`);
-      // Aquí puedes agregar lógica adicional
-      break;
+    case 'USER_CREATED': {
+      const userId = asObjectId(data?._id || data?.userId);
+      const username = data?.username;
+      const fullName = data?.full_name || data?.fullName || '';
+      const avatar = data?.avatar || '';
 
-    case 'USER_UPDATED':
-      logger.info(`User updated: ${data._id}`);
-      // Aquí puedes agregar lógica adicional
+      if (!userId || !username) {
+        logger.warn(
+          'USER_CREATED missing required fields (userId/username). Skipping upsert.'
+        );
+        break;
+      }
+
+      try {
+        await User.updateOne(
+          { _id: userId },
+          {
+            $setOnInsert: { createdAt: new Date() },
+            $set: {
+              userId,
+              username,
+              full_name: fullName,
+              avatar,
+              updatedAt: new Date(),
+            },
+          },
+          { upsert: true }
+        );
+
+        logger.info(
+          `Social user upserted for ${username} (${userId.toString()})`
+        );
+
+        if (isKafkaEnabled()) {
+          await publishSocialEvent('USER_CREATED_SOCIAL', {
+            userId: userId.toString(),
+            username,
+            full_name: fullName,
+            avatar,
+          });
+        }
+      } catch (err) {
+        logger.error(`Failed to upsert social user: ${err.message}`);
+      }
       break;
+    }
+
+    case 'USER_UPDATED': {
+      const userId = asObjectId(data?._id || data?.userId);
+      const patch = {};
+      if (data?.username) patch.username = data.username;
+      if (data?.full_name || data?.fullName)
+        patch.full_name = data.full_name || data.fullName;
+      if (data?.avatar != null) patch.avatar = data.avatar;
+
+      if (!userId) {
+        logger.warn('USER_UPDATED missing userId. Skipping.');
+        break;
+      }
+
+      try {
+        await User.updateOne(
+          { _id: userId },
+          { $set: { ...patch, updatedAt: new Date() } },
+          { upsert: false }
+        );
+        logger.info(`Social user updated: ${userId.toString()}`);
+      } catch (err) {
+        logger.error(`Failed to update social user: ${err.message}`);
+      }
+      break;
+    }
 
     case 'USER_DELETED':
       logger.info(`User deleted: ${data._id}`);
@@ -258,14 +322,11 @@ async function processEvent(event) {
     }
 
     case 'FEED_BEAT_DELETED': {
-      const targetUserId = asObjectId(event.payload?.targetUserId);
-      if (!targetUserId) break;
+      const beatId = asObjectId(event.payload?.beatId);
+      if (!beatId) break;
 
-      await Feed.deleteOne({
-        userId: targetUserId,
-        type: 'beat',
-        entityId: String(event.payload?.beatId),
-      });
+      // Elimina beat + comments + ratings asociados
+      await Feed.deleteMany({ beatId });
       break;
     }
 

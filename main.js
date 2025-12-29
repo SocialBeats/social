@@ -62,8 +62,8 @@ if (process.env.NODE_ENV !== 'test') {
   await ensureIndexes();
 
   // Crear servidor HTTP y enganchar Socket.IO
-  const httpServer = http.createServer(app);
-  const io = initSocket(httpServer);
+  server = http.createServer(app);
+  const io = initSocket(server);
 
   // Rutas de mensajería
   messagingRoutes(app, io);
@@ -77,8 +77,8 @@ if (process.env.NODE_ENV !== 'test') {
     logger.warn('Kafka is not enabled');
   }
 
-  // IMPORTANTE: escuchar con httpServer, no con app
-  httpServer.listen(PORT, () => {
+  // IMPORTANTE: escuchar con server, no con app
+  server.listen(PORT, () => {
     logger.warn(`Using log level: ${process.env.LOG_LEVEL}`);
     logger.info(`API running at http://localhost:${PORT}`);
     logger.info(`Health at http://localhost:${PORT}/api/v1/health`);

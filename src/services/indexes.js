@@ -1,4 +1,5 @@
 import Feed from '../models/Feed.js';
+import User from '../models/User.js';
 import logger from '../../logger.js';
 
 export async function ensureFeedIndexes() {
@@ -15,6 +16,18 @@ export async function ensureFeedIndexes() {
   }
 }
 
+export async function ensureUserIndexes() {
+  try {
+    logger.info('Ensuring User indexes (may rebuild)...');
+    await User.syncIndexes();
+    logger.info('User indexes are up to date.');
+  } catch (err) {
+    logger.error('Failed to ensure User indexes.', err);
+    throw err;
+  }
+}
+
 export default async function ensureIndexes() {
   await ensureFeedIndexes();
+  await ensureUserIndexes();
 }
