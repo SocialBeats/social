@@ -85,6 +85,25 @@ describe('Feed service - unit tests', () => {
     expect(res.body.items.length).toBe(1);
   });
 
+  it('FEED_BEAT_DELETED -> deleteMany beat items', async () => {
+    const deleteManySpy = vi.spyOn(Feed, 'deleteMany').mockResolvedValue({});
+
+    const beatId = oid();
+
+    const event = {
+      type: 'FEED_BEAT_DELETED',
+      payload: {
+        beatId,
+        actorId: oid(),
+        targetUserId: oid(),
+      },
+    };
+
+    await processEvent(event);
+
+    expect(deleteManySpy).toHaveBeenCalledWith({ beatId: expect.any(Object) });
+  });
+
   it('getFeed -> 500 when Feed.find throws', async () => {
     const userId = oid();
     vi.spyOn(Feed, 'find').mockImplementation(() => {
@@ -192,28 +211,6 @@ describe('Feed Kafka events - unit tests', () => {
       expect.any(Object),
       { upsert: true }
     );
-  });
-
-  it('FEED_BEAT_DELETED -> deleteOne beat item', async () => {
-    const deleteOneSpy = vi.spyOn(Feed, 'deleteOne').mockResolvedValue({});
-
-    const beatId = oid();
-    const event = {
-      type: 'FEED_BEAT_DELETED',
-      payload: {
-        beatId,
-        actorId: oid(),
-        targetUserId: oid(),
-      },
-    };
-
-    await processEvent(event);
-
-    expect(deleteOneSpy).toHaveBeenCalledWith({
-      userId: expect.any(Object),
-      type: 'beat',
-      entityId: beatId,
-    });
   });
 
   it('FEED_COMMENT_CREATED -> upsertFeedItem with type=comment', async () => {
