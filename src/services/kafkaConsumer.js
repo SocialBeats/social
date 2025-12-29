@@ -444,12 +444,4 @@ export async function isKafkaConnected() {
   }
 }
 
-/**
- * Checks if Kafka is enabled via environment variable
- * @returns {boolean}
- */
-export function isKafkaEnabled() {
-  return process.env.ENABLE_KAFKA?.toLowerCase() === 'true';
-}
-
 export { consumer, producer, processEvent };
