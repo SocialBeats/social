@@ -1,10 +1,9 @@
 // src/models/OASSchemas.js
 
-// Respuesta de error estándar de este micro (tu código usa { error: '...' })
 export const ErrorResponseSchema = {
   type: 'object',
   properties: {
-    error: { type: 'string', example: 'Missing x-user-id' },
+    error: { type: 'string', example: 'Unauthorized' },
   },
   required: ['error'],
 };

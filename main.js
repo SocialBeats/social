@@ -19,7 +19,7 @@ import {
   disconnectKafkaConsumer,
 } from './src/services/kafkaConsumer.js';
 // import your middlewares here
-// import verifyToken from './src/middlewares/authMiddlewares.js';
+import verifyToken from './src/middlewares/authMiddlewares.js';
 
 // import your routes here
 import aboutRoutes from './src/routes/aboutRoutes.js';
@@ -45,8 +45,8 @@ app.use(cors());
 
 healthRoutes(app);
 // add your middlewares here like this:
-// app.use(verifyToken);
-app.use(fakeAuth);
+app.use(verifyToken);
+//app.use(fakeAuth);
 
 // add your routes here like this:
 aboutRoutes(app);

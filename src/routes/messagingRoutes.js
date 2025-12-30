@@ -1,14 +1,9 @@
 import { Router } from 'express';
-
-import { fakeAuth } from '../middlewares/fakeAuth.js';
 import { makeMessagingController } from '../controllers/messagingController.js';
 
 export default function messagingRoutes(app, io) {
   const router = Router();
   const controller = makeMessagingController(io);
-
-  // Aplica fakeAuth a todas las rutas de mensajería
-  //router.use(fakeAuth);
 
   /**
    * @swagger
@@ -19,10 +14,8 @@ export default function messagingRoutes(app, io) {
    *     summary: Create or get a direct conversation (upsert)
    *     description: >
    *       Creates a direct conversation with `otherUserId` if it does not exist, or returns the existing one.
-   *       Temporary auth uses `x-user-id` header (dev). Future auth will use JWT bearer.
    *       `otherUserId` must be a valid MongoDB ObjectId and cannot be equal to the authenticated user.
    *     security:
-   *       - xUserIdAuth: []
    *       - bearerAuth: []
    *     requestBody:
    *       required: true
@@ -41,27 +34,22 @@ export default function messagingRoutes(app, io) {
    *                 conversation:
    *                   $ref: '#/components/schemas/Conversation'
    *       400:
-   *         description: Invalid header or invalid input.
+   *         description: Invalid input.
    *         content:
    *           application/json:
    *             schema:
    *               $ref: '#/components/schemas/ErrorResponse'
    *             examples:
-   *               invalidHeader:
-   *                 value: { "error": "Invalid x-user-id" }
    *               invalidOtherUserId:
    *                 value: { "error": "Invalid otherUserId" }
    *               selfConversation:
    *                 value: { "error": "Cannot create conversation with yourself" }
    *       401:
-   *         description: Unauthorized. Missing `x-user-id` header (dev) or missing/invalid token (future).
+   *         description: Unauthorized. Missing or invalid token.
    *         content:
    *           application/json:
    *             schema:
    *               $ref: '#/components/schemas/ErrorResponse'
-   *             examples:
-   *               missingHeader:
-   *                 value: { "error": "Missing x-user-id" }
    *       403:
    *         description: Forbidden. You can only message friends.
    *         content:
@@ -86,7 +74,6 @@ export default function messagingRoutes(app, io) {
    *       Empty conversations (without messages) are not returned.
    *       Pagination uses `cursor` (ISO date-time) applied to `lastMessageAt`.
    *     security:
-   *       - xUserIdAuth: []
    *       - bearerAuth: []
    *     parameters:
    *       - in: query
@@ -110,24 +97,12 @@ export default function messagingRoutes(app, io) {
    *           application/json:
    *             schema:
    *               $ref: '#/components/schemas/PaginatedConversations'
-   *       400:
-   *         description: Invalid `x-user-id` header value.
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ErrorResponse'
-   *             examples:
-   *               invalidHeader:
-   *                 value: { "error": "Invalid x-user-id" }
    *       401:
-   *         description: Unauthorized. Missing `x-user-id` header (dev) or missing/invalid token (future).
+   *         description: Unauthorized. Missing or invalid token.
    *         content:
    *           application/json:
    *             schema:
    *               $ref: '#/components/schemas/ErrorResponse'
-   *             examples:
-   *               missingHeader:
-   *                 value: { "error": "Missing x-user-id" }
    */
   router.get('/conversations', controller.listConversations);
 
@@ -143,7 +118,6 @@ export default function messagingRoutes(app, io) {
    *       Pagination uses `before` (ISO date-time) applied to `createdAt`.
    *       Messages are returned in chronological order (oldest to newest) for easier UI rendering.
    *     security:
-   *       - xUserIdAuth: []
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
@@ -174,7 +148,7 @@ export default function messagingRoutes(app, io) {
    *             schema:
    *               $ref: '#/components/schemas/PaginatedMessages'
    *       400:
-   *         description: Invalid conversation id or invalid `x-user-id`.
+   *         description: Invalid conversation id.
    *         content:
    *           application/json:
    *             schema:
@@ -182,17 +156,12 @@ export default function messagingRoutes(app, io) {
    *             examples:
    *               invalidConversationId:
    *                 value: { "error": "Invalid conversationId" }
-   *               invalidHeader:
-   *                 value: { "error": "Invalid x-user-id" }
    *       401:
-   *         description: Unauthorized. Missing `x-user-id` header (dev) or missing/invalid token (future).
+   *         description: Unauthorized. Missing or invalid token.
    *         content:
    *           application/json:
    *             schema:
    *               $ref: '#/components/schemas/ErrorResponse'
-   *             examples:
-   *               missingHeader:
-   *                 value: { "error": "Missing x-user-id" }
    *       403:
    *         description: Forbidden. Authenticated user is not a member of the conversation.
    *         content:
@@ -221,7 +190,6 @@ export default function messagingRoutes(app, io) {
    *       The authenticated user must be a member of the conversation and must be friends with the other participant.
    *       `text` must be a non-empty string (trimmed) and max length is 1000 characters.
    *     security:
-   *       - xUserIdAuth: []
    *       - bearerAuth: []
    *     parameters:
    *       - in: path
@@ -247,7 +215,7 @@ export default function messagingRoutes(app, io) {
    *                 message:
    *                   $ref: '#/components/schemas/Message'
    *       400:
-   *         description: Invalid conversation id, invalid header, or invalid message text.
+   *         description: Invalid conversation id or invalid message text.
    *         content:
    *           application/json:
    *             schema:
@@ -259,17 +227,12 @@ export default function messagingRoutes(app, io) {
    *                 value: { "error": "Text is required" }
    *               textTooLong:
    *                 value: { "error": "Text too long (max 1000)" }
-   *               invalidHeader:
-   *                 value: { "error": "Invalid x-user-id" }
    *       401:
-   *         description: Unauthorized. Missing `x-user-id` header (dev) or missing/invalid token (future).
+   *         description: Unauthorized. Missing or invalid token.
    *         content:
    *           application/json:
    *             schema:
    *               $ref: '#/components/schemas/ErrorResponse'
-   *             examples:
-   *               missingHeader:
-   *                 value: { "error": "Missing x-user-id" }
    *       403:
    *         description: Forbidden. Not a member of the conversation or you can only message friends.
    *         content:

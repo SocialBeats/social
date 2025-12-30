@@ -3,10 +3,13 @@ import Feed from '../models/Feed.js';
 import logger from '../../logger.js';
 
 export const getFeed = async (req, res) => {
-  const userId =
-    req?.query?.userId || req?.query?.user || req?.headers?.['x-user-id'];
-  if (!userId || !mongoose.Types.ObjectId.isValid(String(userId))) {
-    return res.status(400).json({ message: 'Invalid or missing userId' });
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Authentication required' });
+  }
+  if (!mongoose.Types.ObjectId.isValid(String(userId))) {
+    return res.status(400).json({ message: 'Invalid userId' });
   }
 
   const limit = Math.min(

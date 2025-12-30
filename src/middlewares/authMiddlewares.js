@@ -3,6 +3,7 @@ import logger from '../../logger.js';
 
 const openPaths = [
   '/api/v1/docs/',
+  '/api/v1/docs',
   '/api/v1/health',
   '/api/v1/kafka/health',
   '/api/v1/about',
@@ -18,7 +19,6 @@ const verifyToken = (req, res, next) => {
       .status(400)
       .json({ message: 'You must specify the API version, e.g. /api/v1/...' });
   }
-  const token = req.headers.authorization?.split(' ')[1];
 
   try {
     const gatewayAuth = req.headers['x-gateway-authenticated'];
@@ -31,25 +31,27 @@ const verifyToken = (req, res, next) => {
         message:
           'Authentication required. Request must come through the API Gateway.',
       });
-    } else {
-      const userId = req.headers['x-user-id'];
-      const roles = req.headers['x-roles'];
-
-      req.user = {
-        id: userId,
-        'x-user-id': userId,
-        username: userId,
-        roles: roles ? roles.split(',') : [],
-      };
-      if (!userId) {
-        logger.warn(`Unauthenticated request to ${req.path} - Missing user ID`);
-        return res.status(401).json({
-          success: false,
-          message: 'Missing user identification',
-        });
-      }
     }
-    next();
+
+    const userId = req.headers['x-user-id'];
+    const username = req.headers['x-username'];
+    const roles = req.headers['x-roles'];
+
+    if (!userId) {
+      logger.warn(`Unauthenticated request to ${req.path} - Missing user ID`);
+      return res.status(401).json({
+        success: false,
+        message: 'Missing user identification',
+      });
+    }
+
+    req.user = {
+      id: userId,
+      username: username || userId, // fallback coherente
+      roles: roles ? roles.split(',') : [],
+    };
+
+    return next();
   } catch {
     return res.status(403).json({ message: 'Invalid or expired token' });
   }

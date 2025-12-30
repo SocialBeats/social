@@ -23,7 +23,6 @@ export default function aboutRoutes(app) {
   const API_DESCRIPTION =
     process.env.API_DESCRIPTION ||
     'This is an OAS description of this Microservice REST API';
-  const API_PORT = process.env.PORT || 3000;
   const version = getVersion();
 
   // Swagger options
@@ -37,24 +36,33 @@ export default function aboutRoutes(app) {
       },
       servers: [
         {
-          url: `http://localhost:${API_PORT}`,
+          url: process.env.PUBLIC_URL || '/',
         },
       ],
       components: {
         securitySchemes: {
-          // Standard/future auth across services
           bearerAuth: {
             type: 'http',
             scheme: 'bearer',
             bearerFormat: 'JWT',
           },
-          // Current temporary auth for this microservice
-          xUserIdAuth: {
+          gatewayAuth: {
+            type: 'apiKey',
+            in: 'header',
+            name: 'x-gateway-authenticated',
+            description: 'Header de autenticación inyectado por el API Gateway',
+          },
+          userId: {
             type: 'apiKey',
             in: 'header',
             name: 'x-user-id',
-            description:
-              'Temporary dev auth for this microservice. Provide a valid MongoDB ObjectId. Will be replaced by JWT.',
+            description: 'ID del usuario autenticado',
+          },
+          userRoles: {
+            type: 'apiKey',
+            in: 'header',
+            name: 'x-roles',
+            description: 'Roles del usuario (separados por comas)',
           },
         },
         schemas: {

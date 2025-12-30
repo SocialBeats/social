@@ -12,7 +12,7 @@ export function makeMessagingController(io) {
   return {
     // POST /conversations/direct { otherUserId }
     async upsertDirectConversation(req, res) {
-      const userId = req.userId;
+      const userId = req.user.id;
       const { otherUserId } = req.body;
 
       if (!otherUserId || !mongoose.isValidObjectId(otherUserId)) {
@@ -42,7 +42,7 @@ export function makeMessagingController(io) {
 
     // GET /conversations?cursor=&limit=
     async listConversations(req, res) {
-      const userId = req.userId;
+      const userId = req.user.id;
       const limit = Math.min(Number(req.query.limit) || 20, 50);
       const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
 
@@ -78,7 +78,7 @@ export function makeMessagingController(io) {
 
     // GET /conversations/:id/messages?before=&limit=
     async listMessages(req, res) {
-      const userId = req.userId;
+      const userId = req.user.id;
       const { id: conversationId } = req.params;
 
       if (!mongoose.isValidObjectId(conversationId)) {
@@ -118,7 +118,7 @@ export function makeMessagingController(io) {
 
     // POST /conversations/:id/messages { text }
     async sendMessage(req, res) {
-      const userId = req.userId;
+      const userId = req.user.id;
       const { id: conversationId } = req.params;
       const { text } = req.body;
 
