@@ -24,17 +24,19 @@ describe('Feed service - unit tests', () => {
     vi.restoreAllMocks();
   });
 
-  it('getFeed -> 400 when userId missing or invalid', async () => {
+  it('getFeed -> 401 when unauthenticated; 400 when userId invalid', async () => {
+    // Unauthenticated -> middleware would block, service returns 401
     const resA = makeRes();
     await service.getFeed({ query: {} }, resA);
-    expect(resA.statusCode).toBe(400);
+    expect(resA.statusCode).toBe(401);
 
+    // Authenticated but invalid userId -> 400
     const resB = makeRes();
-    await service.getFeed({ query: { userId: 'bad-id' } }, resB);
+    await service.getFeed({ user: { id: 'bad-id' }, query: {} }, resB);
     expect(resB.statusCode).toBe(400);
   });
 
-  it('getFeed -> 200 returns items and meta (query userId)', async () => {
+  it('getFeed -> 200 returns items and meta (authenticated user)', async () => {
     const userId = oid();
     const items = [
       { _id: new mongoose.Types.ObjectId(), userId, title: 't1' },
@@ -51,7 +53,7 @@ describe('Feed service - unit tests', () => {
       }),
     });
 
-    const req = { query: { userId, limit: '10', page: '0' } };
+    const req = { user: { id: userId }, query: { limit: '10', page: '0' } };
     const res = makeRes();
 
     await service.getFeed(req, res);
@@ -66,7 +68,7 @@ describe('Feed service - unit tests', () => {
     });
   });
 
-  it('getFeed -> 200 accepts user id from x-user-id header', async () => {
+  it('getFeed -> 200 does not accept userId from query/header (service requires auth)', async () => {
     const userId = oid();
     const items = [{ _id: new mongoose.Types.ObjectId(), userId, title: 't' }];
 
@@ -76,13 +78,13 @@ describe('Feed service - unit tests', () => {
       }),
     });
 
+    // No req.user -> should be 401 even if header exists
     const req = { query: {}, headers: { 'x-user-id': userId } };
     const res = makeRes();
 
     await service.getFeed(req, res);
 
-    expect(res.statusCode).toBe(200);
-    expect(res.body.items.length).toBe(1);
+    expect(res.statusCode).toBe(401);
   });
 
   it('FEED_BEAT_DELETED -> deleteMany beat items', async () => {
@@ -104,13 +106,13 @@ describe('Feed service - unit tests', () => {
     expect(deleteManySpy).toHaveBeenCalledWith({ beatId: expect.any(Object) });
   });
 
-  it('getFeed -> 500 when Feed.find throws', async () => {
+  it('getFeed -> 500 when Feed.find throws (authenticated user)', async () => {
     const userId = oid();
     vi.spyOn(Feed, 'find').mockImplementation(() => {
       throw new Error('db fail');
     });
 
-    const req = { query: { userId } };
+    const req = { user: { id: userId }, query: { limit: '20', page: '0' } };
     const res = makeRes();
 
     await service.getFeed(req, res);
@@ -293,7 +295,6 @@ describe('Feed Kafka events - unit tests', () => {
     };
 
     await processEvent(event);
-    // Just verify it doesn't throw
     expect(true).toBe(true);
 
     warnSpy.mockRestore();

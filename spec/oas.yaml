@@ -4,27 +4,35 @@ info:
   version: v0.0.1
   description: This is an OAS description of this social microservice REST API
 servers:
-  - url: http://localhost:3004
+  - url: /
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-    xUserIdAuth:
+    gatewayAuth:
+      type: apiKey
+      in: header
+      name: x-gateway-authenticated
+      description: Header de autenticación inyectado por el API Gateway
+    userId:
       type: apiKey
       in: header
       name: x-user-id
-      description: >-
-        Temporary dev auth for this microservice. Provide a valid MongoDB
-        ObjectId. Will be replaced by JWT.
+      description: ID del usuario autenticado
+    userRoles:
+      type: apiKey
+      in: header
+      name: x-roles
+      description: Roles del usuario (separados por comas)
   schemas:
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
-          example: Missing x-user-id
+          example: Unauthorized
       required:
         - error
     Conversation:
@@ -334,11 +342,9 @@ paths:
       summary: Create or get a direct conversation (upsert)
       description: >
         Creates a direct conversation with `otherUserId` if it does not exist,
-        or returns the existing one. Temporary auth uses `x-user-id` header
-        (dev). Future auth will use JWT bearer. `otherUserId` must be a valid
-        MongoDB ObjectId and cannot be equal to the authenticated user.
+        or returns the existing one. `otherUserId` must be a valid MongoDB
+        ObjectId and cannot be equal to the authenticated user.
       security:
-        - xUserIdAuth: []
         - bearerAuth: []
       requestBody:
         required: true
@@ -357,15 +363,12 @@ paths:
                   conversation:
                     $ref: '#/components/schemas/Conversation'
         '400':
-          description: Invalid header or invalid input.
+          description: Invalid input.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
-                invalidHeader:
-                  value:
-                    error: Invalid x-user-id
                 invalidOtherUserId:
                   value:
                     error: Invalid otherUserId
@@ -373,17 +376,11 @@ paths:
                   value:
                     error: Cannot create conversation with yourself
         '401':
-          description: >-
-            Unauthorized. Missing `x-user-id` header (dev) or missing/invalid
-            token (future).
+          description: Unauthorized. Missing or invalid token.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                missingHeader:
-                  value:
-                    error: Missing x-user-id
         '403':
           description: Forbidden. You can only message friends.
           content:
@@ -405,7 +402,6 @@ paths:
         (without messages) are not returned. Pagination uses `cursor` (ISO
         date-time) applied to `lastMessageAt`.
       security:
-        - xUserIdAuth: []
         - bearerAuth: []
       parameters:
         - in: query
@@ -431,28 +427,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaginatedConversations'
-        '400':
-          description: Invalid `x-user-id` header value.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                invalidHeader:
-                  value:
-                    error: Invalid x-user-id
         '401':
-          description: >-
-            Unauthorized. Missing `x-user-id` header (dev) or missing/invalid
-            token (future).
+          description: Unauthorized. Missing or invalid token.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                missingHeader:
-                  value:
-                    error: Missing x-user-id
   /api/v1/social/conversations/{id}/messages:
     get:
       tags:
@@ -464,7 +444,6 @@ paths:
         Messages are returned in chronological order (oldest to newest) for
         easier UI rendering.
       security:
-        - xUserIdAuth: []
         - bearerAuth: []
       parameters:
         - in: path
@@ -495,7 +474,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PaginatedMessages'
         '400':
-          description: Invalid conversation id or invalid `x-user-id`.
+          description: Invalid conversation id.
           content:
             application/json:
               schema:
@@ -504,21 +483,12 @@ paths:
                 invalidConversationId:
                   value:
                     error: Invalid conversationId
-                invalidHeader:
-                  value:
-                    error: Invalid x-user-id
         '401':
-          description: >-
-            Unauthorized. Missing `x-user-id` header (dev) or missing/invalid
-            token (future).
+          description: Unauthorized. Missing or invalid token.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                missingHeader:
-                  value:
-                    error: Missing x-user-id
         '403':
           description: Forbidden. Authenticated user is not a member of the conversation.
           content:
@@ -549,7 +519,6 @@ paths:
         other participant. `text` must be a non-empty string (trimmed) and max
         length is 1000 characters.
       security:
-        - xUserIdAuth: []
         - bearerAuth: []
       parameters:
         - in: path
@@ -575,7 +544,7 @@ paths:
                   message:
                     $ref: '#/components/schemas/Message'
         '400':
-          description: Invalid conversation id, invalid header, or invalid message text.
+          description: Invalid conversation id or invalid message text.
           content:
             application/json:
               schema:
@@ -590,21 +559,12 @@ paths:
                 textTooLong:
                   value:
                     error: Text too long (max 1000)
-                invalidHeader:
-                  value:
-                    error: Invalid x-user-id
         '401':
-          description: >-
-            Unauthorized. Missing `x-user-id` header (dev) or missing/invalid
-            token (future).
+          description: Unauthorized. Missing or invalid token.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                missingHeader:
-                  value:
-                    error: Missing x-user-id
         '403':
           description: >-
             Forbidden. Not a member of the conversation or you can only message

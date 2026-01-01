@@ -61,7 +61,7 @@ describe('messagingController unit tests', () => {
       const res = makeRes();
 
       await controller.upsertDirectConversation(
-        { userId: oid(), body: {} },
+        { user: { id: oid() }, body: {} },
         res
       );
       expect(res.status).toHaveBeenCalledWith(400);
@@ -70,7 +70,7 @@ describe('messagingController unit tests', () => {
       vi.clearAllMocks();
 
       await controller.upsertDirectConversation(
-        { userId: oid(), body: { otherUserId: 'not-an-oid' } },
+        { user: { id: oid() }, body: { otherUserId: 'not-an-oid' } },
         res
       );
       expect(res.status).toHaveBeenCalledWith(400);
@@ -83,7 +83,7 @@ describe('messagingController unit tests', () => {
       const userId = oid();
 
       await controller.upsertDirectConversation(
-        { userId, body: { otherUserId: userId } },
+        { user: { id: userId }, body: { otherUserId: userId } },
         res
       );
 
@@ -102,7 +102,7 @@ describe('messagingController unit tests', () => {
       vi.mocked(areFriends).mockResolvedValue(false);
 
       await controller.upsertDirectConversation(
-        { userId, body: { otherUserId } },
+        { user: { id: userId }, body: { otherUserId } },
         res
       );
 
@@ -127,7 +127,7 @@ describe('messagingController unit tests', () => {
 
       // A -> B
       await controller.upsertDirectConversation(
-        { userId: userA, body: { otherUserId: userB } },
+        { user: { id: userA }, body: { otherUserId: userB } },
         res
       );
 
@@ -148,7 +148,7 @@ describe('messagingController unit tests', () => {
 
       // B -> A
       await controller.upsertDirectConversation(
-        { userId: userB, body: { otherUserId: userA } },
+        { user: { id: userB }, body: { otherUserId: userA } },
         res
       );
 
@@ -178,7 +178,7 @@ describe('messagingController unit tests', () => {
       );
 
       await controller.listConversations(
-        { userId, query: { cursor: 'not-a-date' } },
+        { user: { id: userId }, query: { cursor: 'not-a-date' } },
         res
       );
 
@@ -223,7 +223,7 @@ describe('messagingController unit tests', () => {
 
       await controller.listConversations(
         {
-          userId,
+          user: { id: userId },
           query: { limit: String(limit), cursor: cursor.toISOString() },
         },
         res
@@ -248,20 +248,21 @@ describe('messagingController unit tests', () => {
       vi.mocked(Conversation.find).mockReturnValue(q);
 
       await controller.listConversations(
-        { userId, query: { limit: '999' } },
+        { user: { id: userId }, query: { limit: '999' } },
         res
       );
 
       expect(q.limit).toHaveBeenCalledWith(51);
     });
   });
+
   describe('listMessages', () => {
     it('400 si conversationId inválido', async () => {
       const controller = makeMessagingController(ioStub);
       const res = makeRes();
 
       await controller.listMessages(
-        { userId: oid(), params: { id: 'bad' }, query: {} },
+        { user: { id: oid() }, params: { id: 'bad' }, query: {} },
         res
       );
 
@@ -281,7 +282,7 @@ describe('messagingController unit tests', () => {
       });
 
       await controller.listMessages(
-        { userId: oid(), params: { id: conversationId }, query: {} },
+        { user: { id: oid() }, params: { id: conversationId }, query: {} },
         res
       );
 
@@ -305,7 +306,7 @@ describe('messagingController unit tests', () => {
       });
 
       await controller.listMessages(
-        { userId, params: { id: conversationId }, query: {} },
+        { user: { id: userId }, params: { id: conversationId }, query: {} },
         res
       );
 
@@ -313,7 +314,6 @@ describe('messagingController unit tests', () => {
       expect(res.json).toHaveBeenCalledWith({ error: 'Forbidden' });
     });
 
-    // ✅ ESTE TEST ES EL QUE TE FALTABA PARA CUBRIR LA RAMA "before no existe"
     it('sin before: no añade filtro createdAt', async () => {
       const controller = makeMessagingController(ioStub);
       const res = makeRes();
@@ -329,9 +329,8 @@ describe('messagingController unit tests', () => {
 
       vi.mocked(Message.find).mockReturnValue(makeLeanQuery([]));
 
-      // query SIN before (rama que faltaba)
       await controller.listMessages(
-        { userId, params: { id: conversationId }, query: {} },
+        { user: { id: userId }, params: { id: conversationId }, query: {} },
         res
       );
 
@@ -375,7 +374,7 @@ describe('messagingController unit tests', () => {
 
       await controller.listMessages(
         {
-          userId,
+          user: { id: userId },
           params: { id: conversationId },
           query: { limit: String(limit), before: before.toISOString() },
         },
@@ -408,7 +407,11 @@ describe('messagingController unit tests', () => {
       vi.mocked(Message.find).mockReturnValue(makeLeanQuery([]));
 
       await controller.listMessages(
-        { userId, params: { id: conversationId }, query: { before: 'nope' } },
+        {
+          user: { id: userId },
+          params: { id: conversationId },
+          query: { before: 'nope' },
+        },
         res
       );
 
@@ -423,7 +426,7 @@ describe('messagingController unit tests', () => {
       const res = makeRes();
 
       await controller.sendMessage(
-        { userId: oid(), params: { id: 'bad' }, body: { text: 'hi' } },
+        { user: { id: oid() }, params: { id: 'bad' }, body: { text: 'hi' } },
         res
       );
 
@@ -440,7 +443,11 @@ describe('messagingController unit tests', () => {
       const userId = oid();
 
       await controller.sendMessage(
-        { userId, params: { id: conversationId }, body: { text: 123 } },
+        {
+          user: { id: userId },
+          params: { id: conversationId },
+          body: { text: 123 },
+        },
         res
       );
       expect(res.status).toHaveBeenCalledWith(400);
@@ -449,7 +456,11 @@ describe('messagingController unit tests', () => {
       vi.clearAllMocks();
 
       await controller.sendMessage(
-        { userId, params: { id: conversationId }, body: { text: '   ' } },
+        {
+          user: { id: userId },
+          params: { id: conversationId },
+          body: { text: '   ' },
+        },
         res
       );
       expect(res.status).toHaveBeenCalledWith(400);
@@ -464,7 +475,7 @@ describe('messagingController unit tests', () => {
 
       await controller.sendMessage(
         {
-          userId,
+          user: { id: userId },
           params: { id: conversationId },
           body: { text: 'a'.repeat(1001) },
         },
@@ -486,7 +497,7 @@ describe('messagingController unit tests', () => {
 
       await controller.sendMessage(
         {
-          userId: oid(),
+          user: { id: oid() },
           params: { id: conversationId },
           body: { text: 'hello' },
         },
@@ -512,7 +523,11 @@ describe('messagingController unit tests', () => {
       });
 
       await controller.sendMessage(
-        { userId, params: { id: conversationId }, body: { text: 'hello' } },
+        {
+          user: { id: userId },
+          params: { id: conversationId },
+          body: { text: 'hello' },
+        },
         res
       );
 
@@ -536,7 +551,11 @@ describe('messagingController unit tests', () => {
       vi.mocked(areFriends).mockResolvedValue(false);
 
       await controller.sendMessage(
-        { userId, params: { id: conversationId }, body: { text: 'hello' } },
+        {
+          user: { id: userId },
+          params: { id: conversationId },
+          body: { text: 'hello' },
+        },
         res
       );
 
@@ -580,7 +599,7 @@ describe('messagingController unit tests', () => {
 
       await controller.sendMessage(
         {
-          userId,
+          user: { id: userId },
           params: { id: conversationId },
           body: { text: '  hello trimmed  ' },
         },
@@ -647,7 +666,11 @@ describe('messagingController unit tests', () => {
       vi.mocked(Message.create).mockResolvedValue(msgDoc);
 
       await controller.sendMessage(
-        { userId, params: { id: conversationId }, body: { text: longText } },
+        {
+          user: { id: userId },
+          params: { id: conversationId },
+          body: { text: longText },
+        },
         res
       );
 

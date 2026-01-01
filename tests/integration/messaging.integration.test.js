@@ -7,9 +7,13 @@ import Friendship from '../../src/models/Friendship.js';
 
 const oid = () => new mongoose.Types.ObjectId().toString();
 
+const auth = (userId, extra = {}) => ({
+  'x-gateway-authenticated': 'true',
+  'x-user-id': userId,
+  ...extra,
+});
+
 async function seedFriendshipAccepted(a, b) {
-  // Con areFriends basta con una dirección.
-  // Evita duplicados por el índice unique requester+recipient.
   await Friendship.create({ requester: a, recipient: b, status: 'accepted' });
 }
 
@@ -25,42 +29,36 @@ describe('Messaging integration', () => {
     await Friendship.deleteMany({});
   });
 
-  it('401 si falta autenticación (x-user-id) en endpoints protegidos', async () => {
-    // conversations/direct
+  it('401 si falta autenticación (gateway) en endpoints protegidos', async () => {
     const r1 = await api
       .post('/api/v1/social/conversations/direct')
       .send({ otherUserId: userB });
-
     expect(r1.status).toBe(401);
 
-    // list conversations
     const r2 = await api.get('/api/v1/social/conversations');
     expect(r2.status).toBe(401);
 
-    // list messages (id cualquiera válido)
     const r3 = await api.get(`/api/v1/social/conversations/${oid()}/messages`);
     expect(r3.status).toBe(401);
 
-    // send message (id cualquiera válido)
     const r4 = await api
       .post(`/api/v1/social/conversations/${oid()}/messages`)
       .send({ text: 'hola' });
-
     expect(r4.status).toBe(401);
   });
 
-  it('400 si x-user-id no es un ObjectId válido', async () => {
+  it('401 si falta x-user-id aunque haya gateway auth', async () => {
     const r = await api
       .get('/api/v1/social/conversations')
-      .set('x-user-id', 'bad-id');
+      .set('x-gateway-authenticated', 'true');
 
-    expect(r.status).toBe(400);
+    expect(r.status).toBe(401);
   });
 
   it('400 si otherUserId es inválido al crear conversación', async () => {
     const r = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: 'bad-id' });
 
     expect(r.status).toBe(400);
@@ -69,13 +67,13 @@ describe('Messaging integration', () => {
   it('400 si conversationId es inválido en listMessages y sendMessage', async () => {
     const r1 = await api
       .get('/api/v1/social/conversations/bad-id/messages')
-      .set('x-user-id', userA);
+      .set(auth(userA));
 
     expect(r1.status).toBe(400);
 
     const r2 = await api
       .post('/api/v1/social/conversations/bad-id/messages')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ text: 'hola' });
 
     expect(r2.status).toBe(400);
@@ -84,7 +82,7 @@ describe('Messaging integration', () => {
   it('403 si intenta crear conversación directa con alguien que no es amigo', async () => {
     const res = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userB });
 
     expect(res.status).toBe(403);
@@ -94,10 +92,9 @@ describe('Messaging integration', () => {
   it('403 si usuario autenticado intenta acceder a conversación de la que no es miembro', async () => {
     await seedFriendshipAccepted(userA, userB);
 
-    // Creamos conversación y mensajes entre A y B
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userB });
 
     expect(convoRes.status).toBe(200);
@@ -105,24 +102,22 @@ describe('Messaging integration', () => {
 
     const sendOk = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ text: 'hola' });
 
     expect(sendOk.status).toBe(201);
 
-    // Tercer usuario intenta leer
     const userC = oid();
 
     const r1 = await api
       .get(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userC);
+      .set(auth(userC));
 
     expect(r1.status).toBe(403);
 
-    // Tercer usuario intenta enviar
     const r2 = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userC)
+      .set(auth(userC))
       .send({ text: 'intruso' });
 
     expect(r2.status).toBe(403);
@@ -133,24 +128,22 @@ describe('Messaging integration', () => {
 
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userB });
 
     expect(convoRes.status).toBe(200);
     const conversationId = convoRes.body.conversation._id;
 
-    // vacío/espacios
     const r1 = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ text: '   ' });
 
     expect(r1.status).toBe(400);
 
-    // >1000
     const r2 = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ text: 'a'.repeat(1001) });
 
     expect(r2.status).toBe(400);
@@ -161,7 +154,7 @@ describe('Messaging integration', () => {
 
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userB });
 
     expect(convoRes.status).toBe(200);
@@ -171,7 +164,7 @@ describe('Messaging integration', () => {
 
     const sendRes = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ text: longText });
 
     expect(sendRes.status).toBe(201);
@@ -185,7 +178,7 @@ describe('Messaging integration', () => {
 
     const res1 = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userB });
 
     expect(res1.status).toBe(200);
@@ -194,7 +187,7 @@ describe('Messaging integration', () => {
 
     const res2 = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userB)
+      .set(auth(userB))
       .send({ otherUserId: userA });
 
     expect(res2.status).toBe(200);
@@ -207,7 +200,7 @@ describe('Messaging integration', () => {
   it('POST /api/v1/social/conversations/direct rechaza conversación consigo mismo', async () => {
     const res = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userA });
 
     expect(res.status).toBe(400);
@@ -219,7 +212,7 @@ describe('Messaging integration', () => {
 
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userB });
 
     expect(convoRes.status).toBe(200);
@@ -227,7 +220,7 @@ describe('Messaging integration', () => {
 
     const sendRes = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ text: '  hola mundo  ' });
 
     expect(sendRes.status).toBe(201);
@@ -243,7 +236,7 @@ describe('Messaging integration', () => {
 
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userB });
 
     expect(convoRes.status).toBe(200);
@@ -251,19 +244,19 @@ describe('Messaging integration', () => {
 
     const r1 = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ text: 'uno' });
     expect(r1.status).toBe(201);
 
     const r2 = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ text: 'dos' });
     expect(r2.status).toBe(201);
 
     const listRes = await api
       .get(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userA);
+      .set(auth(userA));
 
     expect(listRes.status).toBe(200);
     expect(listRes.body.items.map((m) => m.text)).toEqual(['uno', 'dos']);
@@ -274,14 +267,12 @@ describe('Messaging integration', () => {
 
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userB });
 
     expect(convoRes.status).toBe(200);
 
-    const res = await api
-      .get('/api/v1/social/conversations')
-      .set('x-user-id', userA);
+    const res = await api.get('/api/v1/social/conversations').set(auth(userA));
 
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(0);
@@ -292,7 +283,7 @@ describe('Messaging integration', () => {
 
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userB });
 
     expect(convoRes.status).toBe(200);
@@ -300,14 +291,12 @@ describe('Messaging integration', () => {
 
     const sendRes = await api
       .post(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ text: 'hola' });
 
     expect(sendRes.status).toBe(201);
 
-    const res = await api
-      .get('/api/v1/social/conversations')
-      .set('x-user-id', userA);
+    const res = await api.get('/api/v1/social/conversations').set(auth(userA));
 
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(1);
@@ -318,16 +307,14 @@ describe('Messaging integration', () => {
   it('GET /conversations/:id/messages pagina con limit y before (hasMore/nextCursor coherentes)', async () => {
     await seedFriendshipAccepted(userA, userB);
 
-    // 1) Creamos conversación
     const convoRes = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userB });
 
     expect(convoRes.status).toBe(200);
     const conversationId = convoRes.body.conversation._id;
 
-    // 2) Insertamos 4 mensajes directamente en DB con createdAt controlado
     const t1 = new Date('2025-01-01T10:00:00.000Z');
     const t2 = new Date('2025-01-01T10:01:00.000Z');
     const t3 = new Date('2025-01-01T10:02:00.000Z');
@@ -364,10 +351,9 @@ describe('Messaging integration', () => {
       },
     ]);
 
-    // 3) Primera página: limit=2 debe devolver los 2 más recientes, pero en orden cronológico (old->new)
     const page1 = await api
       .get(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .query({ limit: 2 });
 
     expect(page1.status).toBe(200);
@@ -376,14 +362,11 @@ describe('Messaging integration', () => {
 
     const nextCursor1 = page1.body.nextCursor;
     expect(nextCursor1).toBeTruthy();
-
-    // nextCursor es el createdAt del más antiguo de la página devuelta => m3 (t3)
     expect(new Date(nextCursor1).toISOString()).toBe(t3.toISOString());
 
-    // 4) Segunda página: before=nextCursor debe devolver lo anterior a t3 => m1,m2 (orden cronológico)
     const page2 = await api
       .get(`/api/v1/social/conversations/${conversationId}/messages`)
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .query({ limit: 2, before: nextCursor1 });
 
     expect(page2.status).toBe(200);
@@ -395,7 +378,6 @@ describe('Messaging integration', () => {
   });
 
   it('GET /conversations pagina con limit y cursor (hasMore/nextCursor coherentes)', async () => {
-    // Creamos 3 conversaciones con mensajes, y forzamos lastMessageAt distintos
     const userC = oid();
     const userD = oid();
     const userE = oid();
@@ -406,19 +388,19 @@ describe('Messaging integration', () => {
 
     const c1 = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userC });
     expect(c1.status).toBe(200);
 
     const c2 = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userD });
     expect(c2.status).toBe(200);
 
     const c3 = await api
       .post('/api/v1/social/conversations/direct')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .send({ otherUserId: userE });
     expect(c3.status).toBe(200);
 
@@ -426,7 +408,6 @@ describe('Messaging integration', () => {
     const id2 = c2.body.conversation._id;
     const id3 = c3.body.conversation._id;
 
-    // Metemos un mensaje en cada conversación y controlamos createdAt
     const t1 = new Date('2025-02-01T10:00:00.000Z');
     const t2 = new Date('2025-02-01T10:01:00.000Z');
     const t3 = new Date('2025-02-01T10:02:00.000Z');
@@ -455,7 +436,6 @@ describe('Messaging integration', () => {
       },
     ]);
 
-    // Actualizamos lastMessageAt/lastMessageText para que listConversations las incluya
     await Conversation.updateOne(
       { _id: id1 },
       { $set: { lastMessageAt: t1, lastMessageText: 'c1' } }
@@ -469,17 +449,15 @@ describe('Messaging integration', () => {
       { $set: { lastMessageAt: t3, lastMessageText: 'c3' } }
     );
 
-    // Página 1: limit=2 => devuelve las 2 más recientes (t3, t2)
     const page1 = await api
       .get('/api/v1/social/conversations')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .query({ limit: 2 });
 
     expect(page1.status).toBe(200);
     expect(page1.body.items).toHaveLength(2);
     expect(page1.body.hasMore).toBe(true);
 
-    // Orden esperado: c3 (t3) primero, luego c2 (t2)
     expect(page1.body.items[0].lastMessageText).toBe('c3');
     expect(page1.body.items[1].lastMessageText).toBe('c2');
 
@@ -487,10 +465,9 @@ describe('Messaging integration', () => {
     expect(cursor).toBeTruthy();
     expect(new Date(cursor).toISOString()).toBe(t2.toISOString());
 
-    // Página 2: cursor=t2 => devuelve c1
     const page2 = await api
       .get('/api/v1/social/conversations')
-      .set('x-user-id', userA)
+      .set(auth(userA))
       .query({ limit: 2, cursor });
 
     expect(page2.status).toBe(200);
