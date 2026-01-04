@@ -1,47 +1,51 @@
-version: "3.8"
-
 services:
-  mongodb:
-    restart: unless-stopped
+  mongodb-social:
     image: mongo:latest
     container_name: mongodb-social
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGOADMIN}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGOPASS}
+    restart: unless-stopped
     networks:
       - socialbeats-network
     ports:
       - "27018:27017"
     volumes:
       - mongo-data-social:/data/db
+    # Opcional: healthcheck para que social espere a Mongo listo
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "mongodb://localhost:27017/admin", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   social:
-    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile-dev
     container_name: social
+    restart: unless-stopped
+    depends_on:
+      mongodb-social:
+        condition: service_healthy
+    networks:
+      - socialbeats-network
+    ports:
+      - "${PORT}:${PORT}"
     environment:
-      - MONGOURL=${MONGOURL}
-      - MONGOADMIN=${MONGOADMIN}
-      - MONGOPASS=${MONGOPASS}
+      # Fuerza a usar SU Mongo en dev (no depende del .env)
+      - MONGOURL=mongodb://mongodb-social:27017/microservice-social
+
+      # Resto de variables
       - NODE_ENV=development
       - PORT=${PORT}
       - LOG_LEVEL=${LOG_LEVEL}
       - JWT_SECRET=${JWT_SECRET}
       - API_TITLE=${API_TITLE}
       - API_DESCRIPTION=${API_DESCRIPTION}
-    depends_on:
-      - mongodb
-    networks:
-      - socialbeats-network
-    ports:
-      - "${PORT}:${PORT}"
+
     volumes:
       - ./:/app:cached
       - /app/node_modules
-    command: nodemon --watch /app --legacy-watch --polling-interval 1000 main.js
 
+    command: nodemon --watch /app --legacy-watch --polling-interval 1000 main.js
 
 volumes:
   mongo-data-social:
