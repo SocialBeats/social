@@ -13,6 +13,4 @@ const beatSchema = new Schema(
   { timestamps: true }
 );
 
-beatSchema.index({ beatId: 1 });
-
 export default mongoose.model('Beat', beatSchema);
