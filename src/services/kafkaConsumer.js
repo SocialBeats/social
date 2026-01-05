@@ -258,6 +258,7 @@ async function processEvent(event) {
 
     // Eventos de beats que nos interesan
     case 'BEAT_CREATED': {
+      logger.info(`BEAT_CREATED event payload:`, JSON.stringify(data, null, 2));
       const artist =
         data.artist || data.createdBy?.username || 'Unknown Artist';
       logger.info(`New beat created: ${data.title} by ${artist}`);
