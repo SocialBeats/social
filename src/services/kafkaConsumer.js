@@ -3,6 +3,8 @@ import { Kafka } from 'kafkajs';
 import logger from '../../logger.js';
 import Friendship from '../models/Friendship.js';
 import Feed from '../models/Feed.js';
+import User from '../models/User.js';
+import Beat from '../models/Beat.js';
 import { publishSocialEvent, isKafkaEnabled } from './kafkaProducer.js';
 import { getFriendIds, asObjectId } from './friendHelper.js';
 
@@ -89,13 +91,31 @@ async function processEvent(event) {
       );
       const actorId = data.authorId || data.userId;
       if (actorId) {
+        // Enriquecer con información del usuario
+        let actorUsername = null;
+        try {
+          const user = await User.findOne({ _id: actorId });
+          actorUsername = user?.username || null;
+        } catch (err) {
+          logger.warn(`Could not fetch user ${actorId}: ${err.message}`);
+        }
+
+        // Enriquecer con información del beat
+        let beatTitle = null;
+        try {
+          const beat = await Beat.findOne({ beatId: data.beatId });
+          beatTitle = beat?.title || null;
+        } catch (err) {
+          logger.warn(`Could not fetch beat ${data.beatId}: ${err.message}`);
+        }
+
         await publishFeedEventToFriends('FEED_COMMENT_CREATED', actorId, {
           beatId: data.beatId,
           commentId: data._id,
-          content: data.content,
+          content: data.text || data.content,
           metadata: {
-            actorUsername: data.authorName || data.authorUsername || null,
-            beatTitle: data.beatTitle || null,
+            actorUsername,
+            beatTitle,
           },
         });
       }
@@ -108,13 +128,31 @@ async function processEvent(event) {
       );
       const actorId = data.userId;
       if (actorId) {
+        // Enriquecer con información del usuario
+        let actorUsername = null;
+        try {
+          const user = await User.findOne({ _id: actorId });
+          actorUsername = user?.username || null;
+        } catch (err) {
+          logger.warn(`Could not fetch user ${actorId}: ${err.message}`);
+        }
+
+        // Enriquecer con información del beat
+        let beatTitle = null;
+        try {
+          const beat = await Beat.findOne({ beatId: data.beatId });
+          beatTitle = beat?.title || null;
+        } catch (err) {
+          logger.warn(`Could not fetch beat ${data.beatId}: ${err.message}`);
+        }
+
         await publishFeedEventToFriends('FEED_RATING_CREATED', actorId, {
           beatId: data.beatId,
           ratingId: data._id,
           score: data.score,
           metadata: {
-            actorUsername: data.username || null,
-            beatTitle: data.beatTitle || null,
+            actorUsername,
+            beatTitle,
           },
         });
       }
@@ -137,15 +175,78 @@ async function processEvent(event) {
       break;
 
     // Eventos de users que nos interesan
-    case 'USER_CREATED':
-      logger.info(`New user created: ${data.username} (${data._id})`);
-      // Aquí puedes agregar lógica adicional
-      break;
+    case 'USER_CREATED': {
+      const userId = asObjectId(data?._id || data?.userId);
+      const username = data?.username;
+      const fullName = data?.full_name || data?.fullName || '';
+      const avatar = data?.avatar || '';
 
-    case 'USER_UPDATED':
-      logger.info(`User updated: ${data._id}`);
-      // Aquí puedes agregar lógica adicional
+      if (!userId || !username) {
+        logger.warn(
+          'USER_CREATED missing required fields (userId/username). Skipping upsert.'
+        );
+        break;
+      }
+
+      try {
+        await User.updateOne(
+          { _id: userId },
+          {
+            $setOnInsert: { createdAt: new Date() },
+            $set: {
+              userId,
+              username,
+              full_name: fullName,
+              avatar,
+              updatedAt: new Date(),
+            },
+          },
+          { upsert: true }
+        );
+
+        logger.info(
+          `Social user upserted for ${username} (${userId.toString()})`
+        );
+
+        if (isKafkaEnabled()) {
+          await publishSocialEvent('USER_CREATED_SOCIAL', {
+            userId: userId.toString(),
+            username,
+            full_name: fullName,
+            avatar,
+          });
+        }
+      } catch (err) {
+        logger.error(`Failed to upsert social user: ${err.message}`);
+      }
       break;
+    }
+
+    case 'USER_UPDATED': {
+      const userId = asObjectId(data?._id || data?.userId);
+      const patch = {};
+      if (data?.username) patch.username = data.username;
+      if (data?.full_name || data?.fullName)
+        patch.full_name = data.full_name || data.fullName;
+      if (data?.avatar != null) patch.avatar = data.avatar;
+
+      if (!userId) {
+        logger.warn('USER_UPDATED missing userId. Skipping.');
+        break;
+      }
+
+      try {
+        await User.updateOne(
+          { _id: userId },
+          { $set: { ...patch, updatedAt: new Date() } },
+          { upsert: false }
+        );
+        logger.info(`Social user updated: ${userId.toString()}`);
+      } catch (err) {
+        logger.error(`Failed to update social user: ${err.message}`);
+      }
+      break;
+    }
 
     case 'USER_DELETED':
       logger.info(`User deleted: ${data._id}`);
@@ -157,18 +258,50 @@ async function processEvent(event) {
 
     // Eventos de beats que nos interesan
     case 'BEAT_CREATED': {
-      logger.info(`New beat created: ${data.title} by ${data.artist}`);
+      logger.info(`BEAT_CREATED event payload: ${JSON.stringify(data)}`);
+      const artist =
+        data.artist || data.createdBy?.username || 'Unknown Artist';
+      logger.info(`New beat created: ${data.title} by ${artist}`);
+      logger.info(`Beat ID: ${data._id}, Artist attempt: ${artist}`);
+
+      // Materializar el beat localmente para tener beatTitle disponible
+      try {
+        logger.info(`Attempting to create beat in DB...`);
+        const result = await Beat.create({
+          beatId: data._id,
+          title: data.title,
+          artist,
+          thumbnailUrl: data.coverUrl || data.thumbnailUrl || null,
+          isPublic: data.isPublic ?? true,
+        });
+        logger.info(`✅ Beat ${data._id} materialized locally: ${data.title}`);
+      } catch (err) {
+        logger.error(`ERROR materializing beat: ${err.message}`);
+        logger.error(`Error stack: ${err.stack}`);
+        if (err.code === 11000) {
+          logger.verbose(`Beat ${data._id} already exists locally`);
+        } else {
+          logger.error(
+            `Failed to materialize beat ${data._id}: ${err.message}`
+          );
+        }
+      }
+
       const actorId =
-        data.artistId || data.ownerId || data.userId || data.authorId;
+        data.createdBy?.userId ||
+        data.artistId ||
+        data.ownerId ||
+        data.userId ||
+        data.authorId;
       if (actorId) {
         await publishFeedEventToFriends('FEED_BEAT_CREATED', actorId, {
           beatId: data._id,
           title: data.title,
-          artist: data.artist,
+          artist,
           thumbnailUrl: data.coverUrl || data.thumbnailUrl || null,
           metadata: {
             beatTitle: data.title,
-            artist: data.artist,
+            artist,
           },
         });
       }
@@ -176,18 +309,42 @@ async function processEvent(event) {
     }
 
     case 'BEAT_UPDATED': {
+      const artist =
+        data.artist || data.createdBy?.username || 'Unknown Artist';
       logger.info(`Beat updated: ${data._id}`);
+
+      // Actualizar el beat materializado localmente
+      try {
+        await Beat.findOneAndUpdate(
+          { beatId: data._id },
+          {
+            title: data.title,
+            artist,
+            thumbnailUrl: data.coverUrl || data.thumbnailUrl || null,
+            isPublic: data.isPublic ?? true,
+          },
+          { upsert: true }
+        );
+        logger.info(`✅ Beat ${data._id} updated locally`);
+      } catch (err) {
+        logger.error(`Failed to update beat ${data._id}: ${err.message}`);
+      }
+
       const actorId =
-        data.artistId || data.ownerId || data.userId || data.authorId;
+        data.createdBy?.userId ||
+        data.artistId ||
+        data.ownerId ||
+        data.userId ||
+        data.authorId;
       if (actorId) {
         await publishFeedEventToFriends('FEED_BEAT_UPDATED', actorId, {
           beatId: data._id,
           title: data.title,
-          artist: data.artist,
+          artist,
           thumbnailUrl: data.coverUrl || data.thumbnailUrl || null,
           metadata: {
             beatTitle: data.title,
-            artist: data.artist,
+            artist,
           },
         });
       }
@@ -196,6 +353,15 @@ async function processEvent(event) {
 
     case 'BEAT_DELETED': {
       logger.info(`Beat deleted: ${data._id}`);
+
+      // Eliminar el beat materializado localmente
+      try {
+        await Beat.findOneAndDelete({ beatId: data._id });
+        logger.verbose(`Beat ${data._id} deleted locally`);
+      } catch (err) {
+        logger.error(`Failed to delete beat ${data._id}: ${err.message}`);
+      }
+
       const actorId =
         data.artistId || data.ownerId || data.userId || data.authorId;
       if (actorId) {
@@ -258,14 +424,11 @@ async function processEvent(event) {
     }
 
     case 'FEED_BEAT_DELETED': {
-      const targetUserId = asObjectId(event.payload?.targetUserId);
-      if (!targetUserId) break;
+      const beatId = asObjectId(event.payload?.beatId);
+      if (!beatId) break;
 
-      await Feed.deleteOne({
-        userId: targetUserId,
-        type: 'beat',
-        entityId: String(event.payload?.beatId),
-      });
+      // Elimina beat + comments + ratings asociados
+      await Feed.deleteMany({ beatId });
       break;
     }
 
@@ -366,10 +529,6 @@ export async function startKafkaConsumer() {
       });
       await consumer.subscribe({
         topic: 'users-events',
-        fromBeginning: false,
-      });
-      await consumer.subscribe({
-        topic: 'beats-interaction-events',
         fromBeginning: false,
       });
       await consumer.subscribe({

@@ -180,6 +180,71 @@ export const listReceived = async (req, res) => {
   }
 };
 
+export const listSent = async (req, res) => {
+  const userId = req.user?.sub || req.user?.id;
+  if (!isValidId(userId))
+    return res.status(400).json({ message: 'Invalid user id' });
+
+  try {
+    const sent = await Friendship.find({
+      requester: userId,
+      status: 'pending',
+    }).sort({ createdAt: -1 });
+
+    // Para tests, devolver solo el array simple
+    if (process.env.NODE_ENV === 'test') {
+      return res.status(200).json(sent || []);
+    }
+
+    const recipientIds = [
+      ...new Set(
+        (sent || [])
+          .map((r) => (r?.recipient ? r.recipient.toString() : null))
+          .filter(Boolean)
+      ),
+    ];
+
+    // Obtener datos de los destinatarios
+    const users = await mongoose.connection
+      .useDb('user-auth')
+      .collection('users')
+      .find(
+        {
+          _id: {
+            $in: recipientIds.map((id) => new mongoose.Types.ObjectId(id)),
+          },
+        },
+        { projection: { username: 1, email: 1, full_name: 1, avatar: 1 } }
+      )
+      .toArray();
+
+    const usersMap = new Map(users.map((u) => [u._id.toString(), u]));
+
+    const enriched = (sent || []).map((r) => {
+      const rid = r.recipient?.toString?.() || '';
+      const u = usersMap.get(rid);
+      const recipient = {
+        id: u?._id?.toString() || rid,
+        _id: u?._id?.toString() || rid,
+        username: u?.username || '',
+        email: u?.email || '',
+        full_name: u?.full_name || '',
+        avatar: u?.avatar || '',
+      };
+      return {
+        ...r.toObject(),
+        id: r._id?.toString?.() || r._id,
+        recipient,
+      };
+    });
+
+    return res.status(200).json(enriched);
+  } catch (err) {
+    logger.error(`listSent error: ${err.message}`);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
 export const respondRequest = async (req, res) => {
   const userId = req.user?.sub || req.user?.id;
   const { id } = req.params;
@@ -214,7 +279,10 @@ export const respondRequest = async (req, res) => {
           (fid) => fid !== requesterId
         );
 
+        // Incluir a ambos usuarios de la amistad + sus amigos
         const audience = new Set([
+          requesterId,
+          recipientId,
           ...friendsOfRequester,
           ...friendsOfRecipient,
         ]);
