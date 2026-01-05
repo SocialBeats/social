@@ -1,5 +1,6 @@
 import Feed from '../models/Feed.js';
 import User from '../models/User.js';
+import Beat from '../models/Beat.js';
 import logger from '../../logger.js';
 
 export async function ensureFeedIndexes() {
@@ -27,7 +28,19 @@ export async function ensureUserIndexes() {
   }
 }
 
+export async function ensureBeatIndexes() {
+  try {
+    logger.info('Ensuring Beat indexes (may rebuild)...');
+    await Beat.syncIndexes();
+    logger.info('Beat indexes are up to date.');
+  } catch (err) {
+    logger.error('Failed to ensure Beat indexes.', err);
+    throw err;
+  }
+}
+
 export default async function ensureIndexes() {
   await ensureFeedIndexes();
   await ensureUserIndexes();
+  await ensureBeatIndexes();
 }

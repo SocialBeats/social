@@ -279,7 +279,10 @@ export const respondRequest = async (req, res) => {
           (fid) => fid !== requesterId
         );
 
+        // Incluir a ambos usuarios de la amistad + sus amigos
         const audience = new Set([
+          requesterId,
+          recipientId,
           ...friendsOfRequester,
           ...friendsOfRecipient,
         ]);
