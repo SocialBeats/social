@@ -258,14 +258,16 @@ async function processEvent(event) {
 
     // Eventos de beats que nos interesan
     case 'BEAT_CREATED': {
-      logger.info(`BEAT_CREATED event payload:`, JSON.stringify(data, null, 2));
+      logger.info(`BEAT_CREATED event payload: ${JSON.stringify(data)}`);
       const artist =
         data.artist || data.createdBy?.username || 'Unknown Artist';
       logger.info(`New beat created: ${data.title} by ${artist}`);
+      logger.info(`Beat ID: ${data._id}, Artist attempt: ${artist}`);
 
       // Materializar el beat localmente para tener beatTitle disponible
       try {
-        await Beat.create({
+        logger.info(`Attempting to create beat in DB...`);
+        const result = await Beat.create({
           beatId: data._id,
           title: data.title,
           artist,
@@ -274,6 +276,8 @@ async function processEvent(event) {
         });
         logger.info(`✅ Beat ${data._id} materialized locally: ${data.title}`);
       } catch (err) {
+        logger.error(`ERROR materializing beat: ${err.message}`);
+        logger.error(`Error stack: ${err.stack}`);
         if (err.code === 11000) {
           logger.verbose(`Beat ${data._id} already exists locally`);
         } else {
