@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Social microservice API
-  version: unknown
+  version: v0.0.4
   description: This is an OAS description of this social microservice REST API
 servers:
   - url: http://localhost:3004
@@ -155,43 +155,6 @@ components:
         - createdAt
         - updatedAt
       description: Friendship relation between two users.
-    FriendshipRequest:
-      type: object
-      properties:
-        recipientId:
-          type: string
-          example: 64f0c2b9b3b2c1a0d1e2f222
-      required:
-        - recipientId
-    FriendshipRespondRequest:
-      type: object
-      properties:
-        action:
-          type: string
-          enum:
-            - accept
-            - reject
-          example: accept
-      required:
-        - action
-    FriendshipListResponse:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/Friendship'
-        count:
-          type: integer
-          example: 2
-        page:
-          type: integer
-          example: 1
-        limit:
-          type: integer
-          example: 20
-      required:
-        - items
     FriendSummary:
       type: object
       properties:
@@ -209,76 +172,6 @@ components:
           example: john@example.com
       required:
         - id
-    FriendsResponse:
-      type: object
-      properties:
-        friends:
-          type: array
-          items:
-            $ref: '#/components/schemas/FriendSummary'
-      required:
-        - friends
-    PaginatedConversations:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/ConversationListItem'
-        hasMore:
-          type: boolean
-          example: true
-        nextCursor:
-          type: string
-          format: date-time
-          nullable: true
-          example: '2025-11-23T12:00:00.000Z'
-          description: >-
-            Cursor for next page. Use as `cursor` query param (lastMessageAt <
-            cursor).
-      required:
-        - items
-        - hasMore
-        - nextCursor
-    PaginatedMessages:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/Message'
-        hasMore:
-          type: boolean
-          example: true
-        nextCursor:
-          type: string
-          format: date-time
-          nullable: true
-          example: '2025-11-23T11:45:00.000Z'
-          description: >-
-            Cursor for next page. Use as `before` query param (createdAt <
-            before). This cursor is the oldest message date in the current page.
-      required:
-        - items
-        - hasMore
-        - nextCursor
-    UpsertDirectConversationRequest:
-      type: object
-      properties:
-        otherUserId:
-          type: string
-          example: 64f0c2b9b3b2c1a0d1e2f222
-      required:
-        - otherUserId
-    SendMessageRequest:
-      type: object
-      properties:
-        text:
-          type: string
-          maxLength: 1000
-          example: Hola!
-      required:
-        - text
     FeedItem:
       type: object
       properties:
@@ -351,6 +244,50 @@ components:
         - createdAt
         - updatedAt
       description: Social feed item representing an event in the network.
+    PaginatedConversations:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConversationListItem'
+        hasMore:
+          type: boolean
+          example: true
+        nextCursor:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2025-11-23T12:00:00.000Z'
+          description: >-
+            Cursor for next page. Use as `cursor` query param (lastMessageAt <
+            cursor).
+      required:
+        - items
+        - hasMore
+        - nextCursor
+    PaginatedMessages:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        hasMore:
+          type: boolean
+          example: true
+        nextCursor:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2025-11-23T11:45:00.000Z'
+          description: >-
+            Cursor for next page. Use as `before` query param (createdAt <
+            before). This cursor is the oldest message date in the current page.
+      required:
+        - items
+        - hasMore
+        - nextCursor
     PaginatedFeed:
       type: object
       properties:
@@ -373,6 +310,51 @@ components:
       required:
         - items
         - meta
+    FriendsResponse:
+      type: object
+      properties:
+        friends:
+          type: array
+          items:
+            $ref: '#/components/schemas/FriendSummary'
+      required:
+        - friends
+    UpsertDirectConversationRequest:
+      type: object
+      properties:
+        otherUserId:
+          type: string
+          example: 64f0c2b9b3b2c1a0d1e2f222
+      required:
+        - otherUserId
+    SendMessageRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          maxLength: 1000
+          example: Hola!
+      required:
+        - text
+    FriendshipRequest:
+      type: object
+      properties:
+        recipientId:
+          type: string
+          example: 64f0c2b9b3b2c1a0d1e2f222
+      required:
+        - recipientId
+    FriendshipRespondRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          enum:
+            - accept
+            - reject
+          example: accept
+      required:
+        - action
 paths:
   /api/v1/about:
     get:
@@ -390,14 +372,105 @@ paths:
                 description: The HTML content of the README file.
         '500':
           description: Error reading the README file.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Error message when the file cannot be read.
+                example: 'Error reading the file: [error details]'
+  /api/v1/version:
+    get:
+      tags:
+        - Documentation
+      summary: Retrieve the API version from the .version file.
+      description: >-
+        Reads the .version file and returns its content as part of a JSON
+        message.
+      responses:
+        '200':
+          description: Successfully retrieved the API version.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: The current API version.
+                    example: v1.0.0
+        '500':
+          description: Error reading the .version file.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    description: Error message summary.
+                    example: There was an error retrieving API version
+                  error:
+                    type: string
+                    description: Detailed error message.
+                    example: 'ENOENT: no such file or directory, open ''.version'''
+  /api/v1/changelog:
+    get:
+      tags:
+        - Documentation
+      summary: Retrieve the API changelog.
+      description: >
+        Reads the `CHANGELOG.md` file, parses its content, and returns it as
+        HTML. Supports filtering by specific versions, multiple versions, or a
+        version range.
+      parameters:
+        - in: query
+          name: versions
+          schema:
+            type: string
+          description: >
+            Comma-separated list of release versions to retrieve (e.g.
+            `v2.1.4,v2.1.2`).
+        - in: query
+          name: from
+          schema:
+            type: string
+          description: >
+            Starting release version for the changelog range (inclusive, e.g.
+            `v2.1.2`).
+        - in: query
+          name: to
+          schema:
+            type: string
+          description: >
+            Ending release version for the changelog range (inclusive, e.g.
+            `v2.1.4`).
+      responses:
+        '200':
+          description: Successfully retrieved the changelog.
+          content:
+            text/html:
+              schema:
+                type: string
+                description: The HTML representation of the changelog or filtered releases.
+        '500':
+          description: Error reading the CHANGELOG.md file.
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Error message when the changelog cannot be read.
+                example: >-
+                  There was an error retrieving API release notes: ENOENT: no
+                  such file or directory, open 'CHANGELOG.md'
   /api/v1/feed:
     get:
       tags:
         - Feed
       summary: Get social feed for authenticated user
       description: >
-        Returns a paginated social feed containing events from friends and network activities
-        (friendships, comments, ratings, beats, etc.). Feed items are sorted by creation date.
+        Returns a paginated social feed containing events from friends and
+        network activities (friendships, comments, ratings, beats, etc.). Feed
+        items are sorted by creation date.
       security:
         - bearerAuth: []
       parameters:
@@ -406,8 +479,8 @@ paths:
           schema:
             type: string
           description: >-
-            User ID (optional, can also use x-user-id header from gateway).
-            If not provided, uses authenticated user ID.
+            User ID (optional, can also use x-user-id header from gateway). If
+            not provided, uses authenticated user ID.
         - in: query
           name: page
           schema:
@@ -464,14 +537,14 @@ paths:
             schema:
               $ref: '#/components/schemas/FriendshipRequest'
       responses:
-        '201':
-          description: Friendship request created
+        '200':
+          description: Friendship request reactivated or auto-accepted
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Friendship'
-        '200':
-          description: Friendship request reactivated or auto-accepted
+        '201':
+          description: Friendship request created
           content:
             application/json:
               schema:
@@ -510,6 +583,34 @@ paths:
       responses:
         '200':
           description: Pending requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Friendship'
+        '400':
+          description: Invalid user id
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/friendships/sent:
+    get:
+      tags:
+        - Friendships
+      summary: List pending friendship requests sent
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Sent requests
           content:
             application/json:
               schema:
@@ -660,96 +761,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-          content:
-            text/plain:
-              schema:
-                type: string
-                description: Error message when the file cannot be read.
-                example: 'Error reading the file: [error details]'
-  /api/v1/version:
-    get:
-      tags:
-        - Documentation
-      summary: Retrieve the API version from the .version file.
-      description: >-
-        Reads the .version file and returns its content as part of a JSON
-        message.
-      responses:
-        '200':
-          description: Successfully retrieved the API version.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    description: The current API version.
-                    example: v1.0.0
-        '500':
-          description: Error reading the .version file.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    description: Error message summary.
-                    example: There was an error retrieving API version
-                  error:
-                    type: string
-                    description: Detailed error message.
-                    example: 'ENOENT: no such file or directory, open ''.version'''
-  /api/v1/changelog:
-    get:
-      tags:
-        - Documentation
-      summary: Retrieve the API changelog.
-      description: >
-        Reads the `CHANGELOG.md` file, parses its content, and returns it as
-        HTML. Supports filtering by specific versions, multiple versions, or a
-        version range.
-      parameters:
-        - in: query
-          name: versions
-          schema:
-            type: string
-          description: >
-            Comma-separated list of release versions to retrieve (e.g.
-            `v2.1.4,v2.1.2`).
-        - in: query
-          name: from
-          schema:
-            type: string
-          description: >
-            Starting release version for the changelog range (inclusive, e.g.
-            `v2.1.2`).
-        - in: query
-          name: to
-          schema:
-            type: string
-          description: >
-            Ending release version for the changelog range (inclusive, e.g.
-            `v2.1.4`).
-      responses:
-        '200':
-          description: Successfully retrieved the changelog.
-          content:
-            text/html:
-              schema:
-                type: string
-                description: The HTML representation of the changelog or filtered releases.
-        '500':
-          description: Error reading the CHANGELOG.md file.
-          content:
-            text/plain:
-              schema:
-                type: string
-                description: Error message when the changelog cannot be read.
-                example: >-
-                  There was an error retrieving API release notes: ENOENT: no
-                  such file or directory, open 'CHANGELOG.md'
   /api/v1/health:
     get:
       tags:
@@ -784,6 +795,9 @@ paths:
                     type: string
                     example: development
                   db:
+                    type: string
+                    example: connected
+                  kafka:
                     type: string
                     example: connected
   /api/v1/social/conversations/direct:

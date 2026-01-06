@@ -16,6 +16,13 @@ import {
   ErrorResponseSchema,
   UpsertDirectConversationRequestSchema,
   SendMessageRequestSchema,
+  FriendshipSchema,
+  FriendshipRequestSchema,
+  FriendshipRespondRequestSchema,
+  FriendSummarySchema,
+  FriendsResponseSchema,
+  FeedItemSchema,
+  PaginatedFeedSchema,
 } from '../models/OASSchemas.js';
 
 export default function aboutRoutes(app) {
@@ -66,14 +73,25 @@ export default function aboutRoutes(app) {
           ConversationListItem: ConversationListItemSchema,
           Message: MessageSchema,
 
+          // Friendships domain
+          Friendship: FriendshipSchema,
+          FriendSummary: FriendSummarySchema,
+
+          // Feed domain
+          FeedItem: FeedItemSchema,
+
           // Pagination payloads
           PaginatedConversations: PaginatedConversationsSchema,
           PaginatedMessages: PaginatedMessagesSchema,
+          PaginatedFeed: PaginatedFeedSchema,
+          FriendsResponse: FriendsResponseSchema,
 
-          // Request bodies (optional but useful for $ref)
+          // Request bodies
           UpsertDirectConversationRequest:
             UpsertDirectConversationRequestSchema,
           SendMessageRequest: SendMessageRequestSchema,
+          FriendshipRequest: FriendshipRequestSchema,
+          FriendshipRespondRequest: FriendshipRespondRequestSchema,
         },
       },
     },
