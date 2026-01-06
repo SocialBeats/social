@@ -1,3 +1,26 @@
+# Release v0.0.6
+
+## Features
+No new features.
+## Tests
+No test changes.
+## Documentation
+- docs: feed and frienship API documentation
+- docs: feed documentation
+
+## Fixes
+No fixes added.
+## Continuous integration (CI)
+No CI changes.
+## Other changes
+- Merge branch 'main' of https://github.com/SocialBeats/social
+- chore: update CHANGELOG and .version for v0.0.5
+- Merge branch 'main' of https://github.com/SocialBeats/social
+
+## Full commit history
+
+For full commit history, see [here](https://github.com/SocialBeats/social/compare/v0.0.4...v0.0.6).
+
 # Release v0.0.5
 
 ## Features
