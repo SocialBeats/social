@@ -1,3 +1,28 @@
+# Release v0.0.4
+
+## Features
+- feat: added kafka log
+- feat: frontend adaptation for friendships
+
+## Tests
+No test changes.
+## Documentation
+No documentation changes.
+## Fixes
+- fix: beat id bug resolved
+- fix: kafka conection
+- fix: feed implementations with kafka
+- fix: small test error
+
+## Continuous integration (CI)
+No CI changes.
+## Other changes
+- Merge pull request #21 from SocialBeats/develop
+
+## Full commit history
+
+For full commit history, see [here](https://github.com/SocialBeats/social/compare/v0.0.3...v0.0.4).
+
 # Release v0.0.3
 
 ## Features
