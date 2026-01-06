@@ -279,6 +279,100 @@ components:
           example: Hola!
       required:
         - text
+    FeedItem:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 64f0c2b9b3b2c1a0d1e2f888
+        userId:
+          type: string
+          example: 64f0c2b9b3b2c1a0d1e2f111
+          description: User who receives this feed item
+        type:
+          type: string
+          enum:
+            - friendship
+            - FEED_COMMENT_CREATED
+            - FEED_RATING_CREATED
+            - FEED_BEAT_CREATED
+          example: friendship
+          description: Type of feed event
+        entityId:
+          type: string
+          example: 64f0c2b9b3b2c1a0d1e2f999
+          description: ID of the entity (beat, comment, rating, friendship)
+        actorId:
+          type: string
+          example: 64f0c2b9b3b2c1a0d1e2f222
+          description: User who triggered the event
+        beatId:
+          type: string
+          nullable: true
+          example: 64f0c2b9b3b2c1a0d1e2f333
+        friendId:
+          type: string
+          nullable: true
+          example: 64f0c2b9b3b2c1a0d1e2f222
+        commentId:
+          type: string
+          nullable: true
+          example: 64f0c2b9b3b2c1a0d1e2f444
+        title:
+          type: string
+          nullable: true
+          example: New beat uploaded
+        text:
+          type: string
+          nullable: true
+          example: Check out this new track!
+        thumbnailUrl:
+          type: string
+          nullable: true
+          example: https://example.com/thumbnail.jpg
+        score:
+          type: number
+          nullable: true
+          example: 4.5
+        createdAt:
+          type: string
+          format: date-time
+          example: '2025-11-23T12:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2025-11-23T12:00:00.000Z'
+      required:
+        - _id
+        - userId
+        - type
+        - entityId
+        - actorId
+        - createdAt
+        - updatedAt
+      description: Social feed item representing an event in the network.
+    PaginatedFeed:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedItem'
+        meta:
+          type: object
+          properties:
+            limit:
+              type: integer
+              example: 20
+            page:
+              type: integer
+              example: 0
+            count:
+              type: integer
+              example: 5
+      required:
+        - items
+        - meta
 paths:
   /api/v1/about:
     get:
@@ -296,6 +390,66 @@ paths:
                 description: The HTML content of the README file.
         '500':
           description: Error reading the README file.
+  /api/v1/feed:
+    get:
+      tags:
+        - Feed
+      summary: Get social feed for authenticated user
+      description: >
+        Returns a paginated social feed containing events from friends and network activities
+        (friendships, comments, ratings, beats, etc.). Feed items are sorted by creation date.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: userId
+          schema:
+            type: string
+          description: >-
+            User ID (optional, can also use x-user-id header from gateway).
+            If not provided, uses authenticated user ID.
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Page number for pagination (zero-indexed).
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of items per page (max 100).
+      responses:
+        '200':
+          description: Paginated feed items retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedFeed'
+        '400':
+          description: Invalid or missing user ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingUserId:
+                  value:
+                    message: Invalid or missing userId
+        '500':
+          description: Server error retrieving feed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                serverError:
+                  value:
+                    message: Server error
   /api/v1/friendships:
     post:
       tags:
