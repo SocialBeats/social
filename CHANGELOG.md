@@ -1,3 +1,24 @@
+# Release v1.0.0
+
+## Features
+No new features.
+## Tests
+- test: fix messaging route in unit tests
+
+## Documentation
+No documentation changes.
+## Fixes
+- fix: change in messaging routes
+
+## Continuous integration (CI)
+No CI changes.
+## Other changes
+- Merge pull request #22 from SocialBeats/develop
+
+## Full commit history
+
+For full commit history, see [here](https://github.com/SocialBeats/social/compare/v0.0.6...v1.0.0).
+
 # Release v0.0.6
 
 ## Features
