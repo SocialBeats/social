@@ -33,7 +33,7 @@ describe('messagingRoutes unit tests', () => {
     };
   });
 
-  it('monta /api/v1/social y registra endpoints correctamente', () => {
+  it('monta /api/v1 y registra endpoints correctamente', () => {
     const ioStub = {};
     const controllerStub = {
       upsertDirectConversation: vi.fn(),
@@ -74,7 +74,7 @@ describe('messagingRoutes unit tests', () => {
 
     // Monta el router bajo el prefijo común
     expect(appMock.use).toHaveBeenCalledTimes(1);
-    expect(appMock.use).toHaveBeenCalledWith('/api/v1/social', routerMock);
+    expect(appMock.use).toHaveBeenCalledWith('/api/v1', routerMock);
 
     // Importante: fakeAuth se aplica en main.js (a nivel app), no se fuerza aquí.
     // Si en el futuro decidís aplicarlo por router, añadid de nuevo la aserción:

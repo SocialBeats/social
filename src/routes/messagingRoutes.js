@@ -294,6 +294,5 @@ export default function messagingRoutes(app, io) {
   router.get('/conversations/:id/messages', controller.listMessages);
   router.post('/conversations/:id/messages', controller.sendMessage);
 
-  // Monta este router bajo un prefijo común (respeta tu convención /api/v1)
-  app.use('/api/v1/social', router);
+  app.use('/api/v1', router);
 }
